@@ -47,6 +47,7 @@ chatbot/
 ### 3. 🗄️ Capa de Datos
 
 - **`database.py`**: Inicialización del gestor relacional (ORM) usando **SQLAlchemy** junto con un motor completamente asíncrono (**aiomysql**), preparado para lidiar con el tráfico e historiales de los chats sin bloquear la aplicación.
+- **Base de Datos de Prueba**: El entorno de desarrollo usa el esquema de prueba oficial de MySQL: [datacharmer/test_db](https://github.com/datacharmer/test_db), proporcionando datos realistas y complejos para las consultas del agente.
 
 ### 4. 🧰 Herramientas Asistenciales (Tools)
 

@@ -1,0 +1,22 @@
+# --- Base de Datos y Docker ---
+# Ignorar los archivos de datos pesados del repo de prueba
+docker/mysql/init/*.dump
+docker/mysql/init/*.gif
+docker/mysql/init/*.jpg
+docker/mysql/init/*.png
+
+# Ignorar la carpeta donde MySQL guarda los datos reales (el volumen)
+# Esto evita que subas la base de datos binaria a GitHub
+mysql_data/
+
+# --- Seguridad ---
+# NUNCA subas el archivo .env con tus claves
+.env
+.env.*
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.pytest_cache/
