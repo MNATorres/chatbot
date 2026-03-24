@@ -5,7 +5,7 @@
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.135+-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
 [![MCP](https://img.shields.io/badge/MCP-1.26+-blueviolet.svg)](https://modelcontextprotocol.io/)
-[![Poetry](https://img.shields.io/badge/Poetry-Package%20Manager-blue)](https://python-poetry.org/)
+[![uv](https://img.shields.io/badge/uv-Package%20Manager-blue)](https://docs.astral.sh/uv/)
 
 </div>
 
@@ -72,20 +72,53 @@ El chatbot no tendría sentido si no puede comunicarse con los usuarios de maner
 | **FastAPI**                | Framework web súper veloz, fuertemente tipado en Python, responsable de los endpoints.          |
 | **Model Context Protocol** | Estandarización de herramientas LLM para conectar rápidamente agentes genéricos al contexto.    |
 | **SQLAlchemy Async**       | Potente Toolkit SQL, ejecutándose de manera de no bloqueante a través de Event loops de Python. |
-| **Poetry**                 | Sistema determinista de empaquetado y gestión de entornos para Python.                          |
+| **uv**                     | Sistema ultrarrápido de empaquetado y gestión de entornos para Python.  |
 
 ---
 
-## 🚀 Guía de Inicio Rápido (Getting Started)
+## 📦 Dependencias del Proyecto
 
-El proyecto simplifica su empaquetado usando [Poetry](https://python-poetry.org/).
+El proyecto requiere **Python 3.13+** y está cimentado usando las siguientes librerías y componentes clave:
+
+- **[FastAPI](https://fastapi.tiangolo.com/) & [Uvicorn](https://www.uvicorn.org/)**: Motor de peticiones web de alto rendimiento.
+- **[MCP (Model Context Protocol)](https://modelcontextprotocol.io/)**: Protocolo estandarizado para la capa de comunicación y uso de herramientas para modelos de lenguaje.
+- **[SQLAlchemy](https://www.sqlalchemy.org/) & [aiomysql](https://github.com/aio-libs/aiomysql)**: Interfaz de Acceso y Mapeo Objeto Relacional a base de datos usando Event Loops asíncronos.
+- **[Pydantic Settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) & [python-dotenv](https://saurabh-kumar.com/python-dotenv/)**: Herramientas integradas para una gestión estricta y segura de configuraciones ambientales y validación estática del entorno.
+
+---
+
+## 🚀 Guía de Instalación y Ejecución Rápidas
+
+Dado su rendimiento insuperable, el proyecto ahora utiliza exclusivamente [uv](https://docs.astral.sh/uv/) como gestor de paquetes (en sustitución de Poetry).
+
+### 1. Requisitos Previos
+
+Si no tienes `uv` instalado a nivel de sistema, es recomendable instalarlo de manera global. Puedes hacerlo usando el instalador oficial o bien a través de pip:
 
 ```bash
-# 1. Instalar las dependencias del proyecto de forma local
-poetry install
+pip install uv
+```
 
-# 2. Inicializar la aplicación completa
-poetry run start
+*(Consulta la [documentación oficial de uv](https://docs.astral.sh/uv/getting-started/installation/) si prefieres usar comandos como curl o Homebrew).*
+
+### 2. Sincronización del Entorno (Instalación)
+
+Con la herramienta en tu sistema, la instalación local es inmediata. Sitúate en la raíz del proyecto y sincroniza el árbol de dependencias. 
+
+La orden analizará `pyproject.toml` y emulará automáticamente las dependencias bloqueadas en `uv.lock` instalándolas en un entorno virtual efímero (o actualizándolas):
+
+```bash
+# Instalar las dependencias del proyecto de forma local
+uv sync
+```
+
+### 3. Levantando el Servidor
+
+Una vez instalado simplemente corre el script de inicio empaquetado que lanzará a nuestra app usando uvicorn para atajar tráfico:
+
+```bash
+# Inicializar la aplicación completa
+uv run start
 ```
 
 <div align="center">

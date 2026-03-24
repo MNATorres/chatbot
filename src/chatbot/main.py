@@ -12,7 +12,7 @@ async def health_check():
     }
 
 def start():
-    """Lanzado con `poetry run start` a través del script en pyproject.toml"""
+    """Lanzado con `uv run start` a través del script en pyproject.toml"""
     uvicorn.run("chatbot.main:app", host="127.0.0.1", port=8000, reload=True)
 
 if __name__ == "__main__":
