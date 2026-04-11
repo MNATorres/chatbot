@@ -42,6 +42,10 @@ class ChatbotHost:
                 result = await mcp_client.call_tool(tool_use.name, arguments=tool_use.input)
                 result_text = result.content[0].text
                 
+                # Truncar textos ridículamente largos (ej: SELECT * de bases gigantes)
+                if len(result_text) > 40000:
+                    result_text = result_text[:40000] + "\n...[TRUNCADO POR LONGITUD MÁXIMA ALCANZADA]"
+                
                 print(f"📊 Resultado desde MCP Server: {result_text[:100]}...") 
                 
                 tool_results_content.append({

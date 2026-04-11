@@ -8,9 +8,10 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     ANTHROPIC_API_KEY: Optional[str] = None
     WHATSAPP_TOKEN: Optional[str] = None
+    DISCORD_TOKEN: Optional[str] = None
     
     # Esto le dice a Pydantic que busque en un archivo .env
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 # Aquí creamos la instancia que el error no encontraba
 settings = Settings()

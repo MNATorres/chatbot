@@ -17,6 +17,7 @@ dependencies = [
     "pydantic-settings>=2.13.1",
     "openai>=2.30.0",
     "anthropic>=0.86.0",
+    "discord-py>=2.7.1",
 ]
 
 [project.scripts]
