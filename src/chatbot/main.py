@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 # Importamos exclusivamente los componentes independientes
@@ -23,6 +24,16 @@ async def lifespan(app: FastAPI):
 
 # Configuracion central del FastAPI
 app = FastAPI(title="Chatbot AI Backend", lifespan=lifespan)
+
+# 🔥 Configuración CORS para permitir peticiones desde tu frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], # Permitimos Vite local
+    allow_credentials=True,
+    allow_methods=["*"], # Permitimos todos los metodos (GET, POST, etc)
+    allow_headers=["*"], # Permitimos cualquier header
+)
+
 app.include_router(router)
 
 def start():
