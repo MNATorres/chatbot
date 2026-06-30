@@ -76,6 +76,9 @@ construir una respuesta final, que luego se devuelve al canal de origen.
 El proyecto sigue el patrón **Host → Client → Server** del Model Context Protocol, donde el
 servidor de herramientas corre como un proceso aparte.
 
+> 📐 **Para los diagramas detallados** (componentes, flujo ReAct paso a paso y ciclo de vida),
+> consulta **[`ARCHITECTURE.md`](ARCHITECTURE.md)**.
+
 ```text
 chatbot/
 ├── src/chatbot/
