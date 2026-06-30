@@ -1,127 +1,233 @@
 <div align="center">
-  <h1>🤖 Chatbot Hub Architecture</h1>
-  <p><em>Un moderno servidor de integraciones y herramientas impulsado por Model Context Protocol (MCP) y FastAPI</em></p>
 
-[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.135+-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
+# 🤖 Chatbot Hub
+
+### Un agente de IA conversacional impulsado por **Claude** y el **Model Context Protocol (MCP)**
+
+Un backend que conecta un modelo de lenguaje con tus datos y canales de mensajería
+(MySQL, WhatsApp y Discord) mediante un ciclo de razonamiento autónomo (ReAct).
+
+[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.135+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![MCP](https://img.shields.io/badge/MCP-1.26+-blueviolet.svg)](https://modelcontextprotocol.io/)
-[![uv](https://img.shields.io/badge/uv-Package%20Manager-blue)](https://docs.astral.sh/uv/)
+[![Claude](https://img.shields.io/badge/Claude-Anthropic-D97757.svg?logo=anthropic&logoColor=white)](https://www.anthropic.com/)
+[![uv](https://img.shields.io/badge/uv-package%20manager-261230.svg?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
 
 </div>
 
 ---
 
-## 🏗️ Arquitectura del Proyecto
+## 📖 ¿Qué es esto?
 
-Este proyecto está diseñado para ser modular, dinámico y escalable. Separa limpiamente la lógica de la base de datos, las herramientas inteligentes, los conectores de redes sociales y los endpoints.
+**Chatbot Hub** es un servidor que actúa como _host_ de un agente de IA. Recibe mensajes
+de lenguaje natural desde distintos canales (una API HTTP, WhatsApp o Discord), se los
+entrega a **Claude**, y le da acceso a un conjunto de **herramientas (tools)** publicadas a
+través del **Model Context Protocol**.
 
-<details open>
-<summary><b>📂 Árbol de Directorios y Estructura</b></summary>
-  
+El modelo decide de forma autónoma qué herramientas usar —consultar la base de datos,
+leer o enviar mensajes en Discord, etc.— en un **bucle de razonamiento ReAct** hasta
+construir una respuesta final, que luego se devuelve al canal de origen.
+
+```
+   Usuario                          Backend (FastAPI)                       Herramientas
+ ┌─────────┐   POST /ask        ┌────────────────────────┐
+ │  HTTP   │ ─────────────────► │                        │
+ ├─────────┤   webhook Meta     │      routes.py         │
+ │WhatsApp │ ─────────────────► │          │             │
+ ├─────────┤   gateway WS       │          ▼             │
+ │ Discord │ ─────────────────► │    ChatbotHost         │
+ └─────────┘                    │  (bucle ReAct, Claude) │
+                                │          │             │
+                                │          ▼             │
+                                │   MCPClientManager  ◄──┼──── stdio ───┐
+                                └────────────────────────┘              │
+                                                                        ▼
+                                                          ┌──────────────────────────┐
+                                                          │   mcp_server.py (FastMCP) │
+                                                          │   ├─ query_production_db  │──► 🗄️ MySQL
+                                                          │   ├─ list_discord_channels│──► 🎮 Discord
+                                                          │   ├─ read_channel_messages│
+                                                          │   └─ send_message_to_...  │
+                                                          └──────────────────────────┘
+```
+
+---
+
+## ✨ Características
+
+- 🧠 **Agente autónomo (ReAct)** — Claude razona en hasta 10 iteraciones, encadenando
+  llamadas a herramientas hasta resolver la consulta.
+- 🔌 **Arquitectura MCP desacoplada** — las herramientas viven en un **subproceso MCP
+  independiente** que se comunica por `stdio`, separando el cerebro (host) de las capacidades.
+- 🗄️ **Consultas a base de datos en lenguaje natural** — el modelo traduce preguntas a SQL
+  de **solo lectura**, con validación estricta (lista blanca de comandos + lista negra de
+  palabras peligrosas).
+- 📱 **Multicanal** — un mismo cerebro responde por **API REST**, **WhatsApp** (Meta Cloud
+  API) y **Discord**.
+- ⚡ **100% asíncrono** — FastAPI + SQLAlchemy async + aiomysql + httpx, sin bloquear el
+  event loop.
+- 🐳 **Entorno reproducible** — MySQL y phpMyAdmin listos vía Docker Compose, con la base
+  de ejemplo `employees` (~300.000 registros).
+
+---
+
+## 🏗️ Arquitectura del Código
+
+El proyecto sigue el patrón **Host → Client → Server** del Model Context Protocol, donde el
+servidor de herramientas corre como un proceso aparte.
+
 ```text
 chatbot/
-├── main.py           # 🚀 Punto de entrada principal (Servidor FastAPI)
-├── mcp_server.py     # 🔌 Servidor de Model Context Protocol (MCP)
-├── config.py         # ⚙️ Configuraciones y variables de entorno centralizadas
-├── database.py       # 🗄️ Conexión asíncrona a la Base de Datos
-├── services/         # 📡 Integraciones y Conectores de Redes
-│   ├── discord.py    #   🎮 Servicio de Bot para Discord
-│   └── whatsapp.py   #   📱 Servicio de mensajería webhook para WhatsApp
-└── tools/            # 🧰 Herramientas LLM / MCP
-    ├── db_tools.py   #   📊 Herramientas de consulta a la Base de Datos
-    └── rag_tools.py  #   🧠 Retrieval-Augmented Generation (Modelos de Búsqueda)
+├── src/chatbot/
+│   ├── main.py              # 🚀 App FastAPI + CORS; lifespan que inyecta cliente MCP y host
+│   ├── routes.py            # 🛣️  Endpoints HTTP (/ask, health, webhooks de WhatsApp)
+│   ├── mcp_host.py          # 🧠 ChatbotHost: bucle de razonamiento ReAct con Claude
+│   ├── mcp_client.py        # 🔗 MCPClientManager: levanta y habla con el servidor MCP por stdio
+│   ├── mcp_server.py        # 🔌 Punto de entrada del servidor MCP (registra las tools)
+│   ├── app.py               # ⚙️  Instancia FastMCP + lifespan de la base de datos
+│   ├── config.py            # 🔐 Settings tipados con Pydantic (lee variables de entorno)
+│   ├── database.py          # 🗄️  Engine async de SQLAlchemy + fábrica de sesiones
+│   ├── services/            # 📡 Conectores externos
+│   │   ├── discord_service.py  #   🎮 Cliente de Discord (login, leer/enviar, listar canales)
+│   │   └── whatsapp.py         #   📱 Envío de mensajes vía Meta Cloud API
+│   └── tools/               # 🧰 Herramientas expuestas al modelo vía MCP
+│       ├── db_tools.py         #   📊 query_production_db (SQL de solo lectura validado)
+│       ├── discord_tools.py    #   🎮 Enviar / leer / listar canales de Discord
+│       └── rag_tools.py        #   🧠 (Reservado para RAG — aún no implementado)
+├── docker/mysql/init/       # 🐳 Scripts SQL de inicialización (base de ejemplo employees)
+├── docker-compose.yml       # 🐳 MySQL 8.0 + phpMyAdmin
+├── pyproject.toml           # 📦 Dependencias y script `start`
+└── MPC_INSPECTOR.md         # 🔍 Guía para depurar las tools con el MCP Inspector
 ```
-</details>
 
-## 🧩 Componentes Principales
+### Flujo de una petición
 
-### 1. 🚀 Núcleo de la Aplicación
-
-- **`main.py`**: Es el punto de arranque de la aplicación. Inicializa el servidor web utilizando **FastAPI** y **Uvicorn**, exponiendo y enrutando los conectores hacia los demás módulos de la arquitectura de manera asíncrona y eficiente.
-- **`config.py`**: Carga y procesa de forma segura todas las variables de entorno necesarias para que ningún token o información sensible quede embebida en el código.
-
-### 2. 🔌 Integración Inteligente (MCP)
-
-- **`mcp_server.py`**: Levanta el servidor compatible con el **Model Context Protocol**. Facilita la comunicación estándar al permitir que un Modelo de Lenguaje Entorno (LLM) o un Agente use y entienda el contexto y herramientas propias del chatbot, estandarizando la experiencia.
-
-### 3. 🗄️ Capa de Datos
-
-- **`database.py`**: Inicialización del gestor relacional (ORM) usando **SQLAlchemy** junto con un motor completamente asíncrono (**aiomysql**), preparado para lidiar con el tráfico e historiales de los chats sin bloquear la aplicación.
-- **Base de Datos de Prueba**: El entorno de desarrollo usa el esquema de prueba oficial de MySQL: [datacharmer/test_db](https://github.com/datacharmer/test_db), proporcionando datos realistas y complejos para las consultas del agente.
-
-### 4. 🧰 Herramientas Asistenciales (Tools)
-
-Aquí viven las funcionalidades o _skills_ expuestas que el agente cognitivo puede usar durante una conversación:
-
-- **`db_tools.py`**: Provee interfaces limpias para obtener analíticas, historial o inyectar nuevos eventos provenientes de los clientes dentro de la base de datos.
-- **`rag_tools.py`**: La piedra angular de las consultas guiadas. Implementa funciones para realizar Búsquedas Vectoriales o Contextuales de manera de darle bases firmes (RAG) de conocimiento a las respuestas del bot.
-
-### 5. 📡 Servicios de Mensajería (Services)
-
-El chatbot no tendría sentido si no puede comunicarse con los usuarios de manera transversal:
-
-- **`discord.py`**: Contiene los clientes de red orientados a la conexión WebSockets de cara a eventos y servidores de Discord, interpretando comandos e intenciones de usuarios.
-- **`whatsapp.py`**: Encargado de los webhooks de Meta, interpreta las cargas de los mensajes de WhatsApp Cloud API, permitiendo un flujo robusto de texto e imágenes directo al usuario donde esté.
+1. Un mensaje llega por `POST /ask` o por el webhook de WhatsApp en [`routes.py`](src/chatbot/routes.py).
+2. La ruta delega en **`ChatbotHost.process_message`** ([`mcp_host.py`](src/chatbot/mcp_host.py)).
+3. El host le envía el mensaje a **Claude** junto con la lista de herramientas disponibles.
+4. Si Claude pide usar una tool, el host la ejecuta a través del **`MCPClientManager`**
+   ([`mcp_client.py`](src/chatbot/mcp_client.py)), que reenvía la llamada al subproceso
+   **`mcp_server.py`** por `stdio`.
+5. El resultado vuelve al modelo, que razona de nuevo. El ciclo se repite hasta que Claude
+   produce una respuesta de texto final.
+6. La respuesta se devuelve por el mismo canal (JSON HTTP o mensaje de WhatsApp).
 
 ---
 
 ## 🛠️ Stack Tecnológico
 
-| Tecnología                 | Descripción                                                                                     |
-| -------------------------- | ----------------------------------------------------------------------------------------------- |
-| **FastAPI**                | Framework web súper veloz, fuertemente tipado en Python, responsable de los endpoints.          |
-| **Model Context Protocol** | Estandarización de herramientas LLM para conectar rápidamente agentes genéricos al contexto.    |
-| **SQLAlchemy Async**       | Potente Toolkit SQL, ejecutándose de manera de no bloqueante a través de Event loops de Python. |
-| **uv**                     | Sistema ultrarrápido de empaquetado y gestión de entornos para Python.  |
+| Tecnología | Rol en el proyecto |
+| :--- | :--- |
+| **[Claude (Anthropic)](https://www.anthropic.com/)** | Modelo de lenguaje que razona y decide qué herramientas usar. |
+| **[Model Context Protocol](https://modelcontextprotocol.io/)** | Estándar que conecta el agente con las herramientas (vía `FastMCP`). |
+| **[FastAPI](https://fastapi.tiangolo.com/)** + **[Uvicorn](https://www.uvicorn.org/)** | Servidor web asíncrono de alto rendimiento y los endpoints HTTP. |
+| **[SQLAlchemy 2.0](https://www.sqlalchemy.org/)** + **[aiomysql](https://github.com/aio-libs/aiomysql)** | ORM y driver async para hablar con MySQL sin bloquear. |
+| **[Pydantic Settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/)** | Carga y validación tipada de la configuración (`.env`). |
+| **[discord.py](https://discordpy.readthedocs.io/)** | Cliente para leer y enviar mensajes en Discord. |
+| **[httpx](https://www.python-httpx.org/)** | Cliente HTTP async para la Meta Cloud API de WhatsApp. |
+| **[uv](https://docs.astral.sh/uv/)** | Gestor de paquetes y entornos ultrarrápido. |
+| **[Docker](https://www.docker.com/)** | MySQL 8.0 + phpMyAdmin para desarrollo local. |
 
 ---
 
-## 📦 Dependencias del Proyecto
+## 🚀 Puesta en Marcha
 
-El proyecto requiere **Python 3.13+** y está cimentado usando las siguientes librerías y componentes clave:
+### 1. Requisitos previos
 
-- **[FastAPI](https://fastapi.tiangolo.com/) & [Uvicorn](https://www.uvicorn.org/)**: Motor de peticiones web de alto rendimiento.
-- **[MCP (Model Context Protocol)](https://modelcontextprotocol.io/)**: Protocolo estandarizado para la capa de comunicación y uso de herramientas para modelos de lenguaje.
-- **[SQLAlchemy](https://www.sqlalchemy.org/) & [aiomysql](https://github.com/aio-libs/aiomysql)**: Interfaz de Acceso y Mapeo Objeto Relacional a base de datos usando Event Loops asíncronos.
-- **[Pydantic Settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) & [python-dotenv](https://saurabh-kumar.com/python-dotenv/)**: Herramientas integradas para una gestión estricta y segura de configuraciones ambientales y validación estática del entorno.
+- **Python 3.13+**
+- **[uv](https://docs.astral.sh/uv/getting-started/installation/)** (`pip install uv` si aún no lo tienes)
+- **Docker** (para la base de datos local)
+- Una **API key de Anthropic**
 
----
-
-## 🚀 Guía de Instalación y Ejecución Rápidas
-
-Dado su rendimiento insuperable, el proyecto ahora utiliza exclusivamente [uv](https://docs.astral.sh/uv/) como gestor de paquetes (en sustitución de Poetry).
-
-### 1. Requisitos Previos
-
-Si no tienes `uv` instalado a nivel de sistema, es recomendable instalarlo de manera global. Puedes hacerlo usando el instalador oficial o bien a través de pip:
+### 2. Instalar dependencias
 
 ```bash
-pip install uv
-```
-
-*(Consulta la [documentación oficial de uv](https://docs.astral.sh/uv/getting-started/installation/) si prefieres usar comandos como curl o Homebrew).*
-
-### 2. Sincronización del Entorno (Instalación)
-
-Con la herramienta en tu sistema, la instalación local es inmediata. Sitúate en la raíz del proyecto y sincroniza el árbol de dependencias. 
-
-La orden analizará `pyproject.toml` y emulará automáticamente las dependencias bloqueadas en `uv.lock` instalándolas en un entorno virtual efímero (o actualizándolas):
-
-```bash
-# Instalar las dependencias del proyecto de forma local
 uv sync
 ```
 
-### 3. Levantando el Servidor
+`uv` lee `pyproject.toml` / `uv.lock` y crea el entorno virtual con las versiones exactas.
 
-Una vez instalado simplemente corre el script de inicio empaquetado que lanzará a nuestra app usando uvicorn para atajar tráfico:
+### 3. Configurar variables de entorno
+
+Crea un archivo `.env` en la raíz del proyecto:
+
+```dotenv
+# Base de datos (coincide con docker-compose.yml)
+DATABASE_URL="mysql+aiomysql://root:password@127.0.0.1:3306/employees"
+
+# Inteligencia artificial
+ANTHROPIC_API_KEY="sk-ant-..."
+
+# WhatsApp (Meta Cloud API) — opcional
+WHATSAPP_TOKEN="..."
+WHATSAPP_PHONE_ID="..."
+WHATSAPP_VERIFY_TOKEN="..."
+
+# Discord — opcional
+DISCORD_TOKEN="..."
+```
+
+### 4. Levantar la base de datos
 
 ```bash
-# Inicializar la aplicación completa
+docker compose up -d
+```
+
+Esto inicia **MySQL 8.0** (puerto `3306`) con la base de ejemplo `employees` y
+**phpMyAdmin** en [http://localhost:8080](http://localhost:8080).
+
+### 5. Arrancar el servidor
+
+```bash
 uv run start
 ```
 
+La API queda disponible en [http://127.0.0.1:8000](http://127.0.0.1:8000).
+
+---
+
+## 📡 Endpoints HTTP
+
+| Método | Ruta | Descripción |
+| :--- | :--- | :--- |
+| `GET` | `/` | Health check; indica si el cliente MCP está conectado. |
+| `POST` | `/ask` | Envía un mensaje al agente. Body: `{ "message": "..." }`. |
+| `GET` | `/webhook/whatsapp` | Verificación del webhook por parte de Meta. |
+| `POST` | `/webhook/whatsapp` | Recepción de mensajes entrantes de WhatsApp. |
+
+**Ejemplo:**
+
+```bash
+curl -X POST http://127.0.0.1:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"message": "¿Cuáles son los 5 empleados con mayor salario actual?"}'
+```
+
+```json
+{ "answer": "Los empleados con mayor salario actual son ..." }
+```
+
+---
+
+## 🔍 Depurar las herramientas (MCP Inspector)
+
+Para inspeccionar y probar las tools de forma aislada (sin pasar por Claude), consulta
+[`MPC_INSPECTOR.md`](MPC_INSPECTOR.md). En resumen:
+
+```powershell
+$env:PYTHONPATH = "src"; uv run mcp dev src/chatbot/mcp_server.py
+```
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] Implementar **RAG** (búsqueda vectorial / contextual) en [`rag_tools.py`](src/chatbot/tools/rag_tools.py).
+- [ ] Persistir el historial de conversación por usuario (hoy cada mensaje es _stateless_).
+- [ ] Tests automatizados sobre el host y las herramientas.
+
+---
+
 <div align="center">
-  <br>
-  <i>Diseñado con ❤️ para la modernidad y automatización delegada a Agentes Inteligentes.</i>
+  <sub>Diseñado con ❤️ para la automatización conversacional delegada a Agentes Inteligentes.</sub>
 </div>
