@@ -20,10 +20,16 @@ uv run start           # Arrancar el backend FastAPI en http://127.0.0.1:8000 (r
 # Depurar las tools MCP de forma aislada (sin pasar por Claude):
 # PowerShell:
 $env:PYTHONPATH = "src"; uv run mcp dev src/chatbot/mcp_server.py
+
+uv run pytest                              # Correr los tests
+uv run pytest --cov=chatbot --cov-report=term-missing   # Con coverage
 ```
 
 - Python **3.13+**. Plataforma de desarrollo: **Windows (PowerShell)**.
-- No hay tests todavía (`tests/` está vacío).
+- **Tests** en `tests/` (pytest + pytest-asyncio, `asyncio_mode=auto`). Mockean todo lo externo
+  (Anthropic, MySQL, Discord, Meta): sin red ni DB real. Cubren al 100% la lógica crítica
+  (`db_tools`, `mcp_host`, `routes`, `whatsapp`). Si el server está corriendo y `uv run` falla al
+  re-sincronizar (bloquea `start.exe`), usá `uv run --no-sync pytest`.
 
 ## Arquitectura (patrón Host → Client → Server de MCP)
 
