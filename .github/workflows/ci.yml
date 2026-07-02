@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   test:
-    name: Tests (pytest)
+    name: Tests (pytest + coverage)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,5 +28,51 @@ jobs:
       - name: Sincronizar dependencias (incluye grupo dev)
         run: uv sync --group dev
 
+      # El umbral de coverage (fail_under = 80) vive en pyproject.toml,
+      # así que este paso falla si la cobertura baja de ese mínimo.
       - name: Correr tests con coverage
         run: uv run pytest --cov=chatbot --cov-report=term-missing
+
+  lint:
+    name: Lint + formato (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Ruff check (lint)
+        run: uvx ruff check src tests
+
+      - name: Ruff format (verificar formato)
+        run: uvx ruff format --check src tests
+
+  secrets:
+    name: Escaneo de secretos (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # historial completo para escanear todos los commits
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  audit:
+    name: Vulnerabilidades en dependencias (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Exportar dependencias a requirements.txt
+        run: uv export --no-emit-project --no-hashes --format requirements-txt > requirements.txt
+
+      # Informativo por ahora (no bloquea): el proyecto arrastra CVEs en deps
+      # transitivas (starlette, python-multipart, etc.) que requieren un bump
+      # de dependencias con testing propio. Quitá continue-on-error cuando estén
+      # actualizadas para volverlo un gate estricto.
+      - name: pip-audit
+        continue-on-error: true
+        run: uvx pip-audit -r requirements.txt
