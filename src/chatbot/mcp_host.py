@@ -3,6 +3,10 @@ import asyncio
 from anthropic import AsyncAnthropic
 from chatbot.mcp_client import MCPClientManager
 
+# Presupuesto de salida por turno. 1024 cortaba respuestas largas (ej: listar
+# 50 filas + resumen de varios canales) a mitad de palabra.
+MAX_TOKENS = 8192
+
 class ChatbotHost:
     """Actúa como el 'Host' central, inyectando dependencias al modelo de IA."""
     def __init__(self):
@@ -29,6 +33,7 @@ class ChatbotHost:
     async def process_message(self, message: str, mcp_client: MCPClientManager) -> str:
         """Contiene el ciclo de razonamiento (ReAct) de 10 iteraciones de Claude."""
         messages = [{"role": "user", "content": message}]
+        print(f"message: {message}")
         
         for i in range(10):
             print(f"\n--- 🧠 Intento de Razonamiento #{i+1} ---")
@@ -36,7 +41,7 @@ class ChatbotHost:
             # 1. Petición a Claude
             response = await self.anthropic.messages.create(
                 model="claude-sonnet-4-5-20250929", # Modelo que utilices
-                max_tokens=1024,
+                max_tokens=MAX_TOKENS,
                 tools=mcp_client.tools,  # Obtenido desde el cliente
                 messages=messages
             )
@@ -51,7 +56,16 @@ class ChatbotHost:
 
             # Condición de salida: Si no usó herramientas, la respuesta principal es texto final.
             if response.stop_reason != "tool_use":
-                return response.content[0].text
+                final_text = response.content[0].text
+                # Si Claude se quedó sin presupuesto de salida, la respuesta está
+                # cortada: avisamos en vez de devolver texto truncado en silencio.
+                if response.stop_reason == "max_tokens":
+                    print("⚠️ Respuesta truncada por max_tokens.")
+                    final_text += (
+                        "\n\n⚠️ [Respuesta truncada por longitud máxima. "
+                        "Pedime que continúe o acotá la consulta.]"
+                    )
+                return final_text
 
             # 3. Ejecución concurrente de las tools de este turno vía cliente MCP.
             #    gather preserva el orden de la lista y cada tool_result lleva su
