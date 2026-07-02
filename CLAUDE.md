@@ -73,6 +73,13 @@ Archivos clave en `src/chatbot/`:
 - **Base de ejemplo**: el esquema `employees` (~300.024 registros) de
   [datacharmer/test_db](https://github.com/datacharmer/test_db), cargado por Docker.
 
+## Teoría de MCP
+
+- Hay una **skill** en `.claude/skills/mcp/` con la teoría y mejores prácticas de MCP
+  (arquitectura, cliente/host, best practices) resumidas de la doc oficial y **mapeadas a
+  este repo**. Se carga sola al trabajar temas de MCP; consúltala antes de tocar el Host, el
+  Client, el Server o las tools.
+
 ## Git
 
 - Rama principal: **`main`**. El usuario suele pedir commitear y pushear a `main` directamente.
