@@ -43,7 +43,9 @@ Archivos clave en `src/chatbot/`:
 
 - **`main.py`** — App FastAPI + CORS. El `lifespan` abre el cliente MCP y crea el `ChatbotHost`,
   guardándolos en `app.state` para que las rutas los reusen.
-- **`routes.py`** — Endpoints: `GET /` (health), `POST /ask`, y los webhooks de WhatsApp.
+- **`routes.py`** — Endpoints: `GET /` (health), `POST /ask`, y los webhooks de WhatsApp. El
+  webhook entrante **valida la firma HMAC de Meta**, deduplica por `message.id` y **procesa en
+  background** (responde `200` al toque; ver convenciones).
 - **`mcp_host.py`** — `ChatbotHost`: el cerebro. Bucle ReAct de **10 iteraciones** que llama a
   Claude, ejecuta las tools que pida y le devuelve los resultados.
 - **`mcp_client.py`** — `MCPClientManager`: lanza `mcp_server.py` como subproceso (`uv run python
@@ -51,7 +53,8 @@ Archivos clave en `src/chatbot/`:
 - **`mcp_server.py`** — Punto de entrada del servidor MCP. **Importa los módulos de `tools/`** para
   que los decoradores `@mcp.tool()` registren las herramientas.
 - **`app.py`** — Instancia `FastMCP` y su `lifespan` (libera el engine de la DB al cerrar).
-- **`config.py`** — `Settings` de Pydantic; lee `.env`.
+- **`config.py`** — `Settings` de Pydantic; lee `.env`. **Centraliza toda la config** (incluida la
+  de WhatsApp): usa `settings.X`, no `os.getenv`.
 - **`database.py`** — Engine async de SQLAlchemy (aiomysql) + `SessionLocal`.
 - **`services/`** — `whatsapp.py` (Meta Cloud API vía httpx) y `discord_service.py` (discord.py).
 - **`tools/`** — `db_tools.py`, `discord_tools.py`, y `rag_tools.py` (**vacío, reservado para RAG**).
@@ -69,7 +72,17 @@ Archivos clave en `src/chatbot/`:
   en el event loop.
 - **El agente es stateless**: cada mensaje arranca una conversación nueva, sin historial entre
   peticiones.
+- **Webhook de WhatsApp** (`POST /webhook/whatsapp`): es **fire-and-forget en background**, no
+  síncrono. Meta reintenta si no recibe un `200` rápido (causa respuestas duplicadas), así que se
+  contesta `200` de inmediato y el bucle ReAct corre en `BackgroundTasks`. Además: **valida la
+  firma** `X-Hub-Signature-256` (HMAC-SHA256 del body con `WHATSAPP_APP_SECRET`) antes de procesar
+  y **deduplica** por `message.id` con un `deque` acotado en `app.state`. No vuelvas a procesar el
+  webhook de forma síncrona ni saltees estas validaciones.
 - **Secretos**: viven en `.env` (ignorado por git). Nunca hardcodees tokens ni los subas.
+  Variables de WhatsApp (todas vía `Settings`): `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`,
+  `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` (**obligatorio**: sin él el webhook rechaza con
+  `403`), y opcionales `WHATSAPP_API_VERSION` (default `v25.0`) y `WHATSAPP_SANDBOX` (activa el fix
+  de números AR del sandbox; debe estar en `false` en producción).
 - **Base de ejemplo**: el esquema `employees` (~300.024 registros) de
   [datacharmer/test_db](https://github.com/datacharmer/test_db), cargado por Docker.
 
