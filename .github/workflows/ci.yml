@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancela runs viejos de la misma rama si llega un push nuevo.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Instalar Python 3.13
+        run: uv python install 3.13
+
+      - name: Sincronizar dependencias (incluye grupo dev)
+        run: uv sync --group dev
+
+      - name: Correr tests con coverage
+        run: uv run pytest --cov=chatbot --cov-report=term-missing
