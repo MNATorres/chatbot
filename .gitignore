@@ -20,3 +20,9 @@ __pycache__/
 *$py.class
 .venv/
 .pytest_cache/
+
+# --- Tests / coverage ---
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
