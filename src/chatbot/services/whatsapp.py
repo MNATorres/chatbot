@@ -1,20 +1,22 @@
-import os
 import httpx
+
+from chatbot.config import settings
 
 async def send_whatsapp_message(phone_number: str, message: str) -> bool:
     """Envía un mensaje de texto de WhatsApp a un usuario mediante la Cloud API de Meta"""
-    
-    access_token = os.getenv("WHATSAPP_TOKEN")
-    phone_id = os.getenv("WHATSAPP_PHONE_ID")
-    
+
+    access_token = settings.WHATSAPP_TOKEN
+    phone_id = settings.WHATSAPP_PHONE_ID
+
     # --- FIX PARA NÚMEROS DE ARGENTINA (ZONA 11) EN MODO PRUEBA DE META ---
     # Bug del sandbox: FB guarda tu número como 541115... (con el 15 local)
-    # pero el webhook entrante dice 54911... (internacional).
-    if phone_number.startswith("54911"):
+    # pero el webhook entrante dice 54911... (internacional). Solo aplica en el
+    # sandbox: en producción rompería números legítimos, por eso va tras un flag.
+    if settings.WHATSAPP_SANDBOX and phone_number.startswith("54911"):
         phone_number = phone_number.replace("54911", "541115", 1)
-        
+
     # URL oficial de la API de WhatsApp
-    url = f"https://graph.facebook.com/v25.0/{phone_id}/messages"
+    url = f"https://graph.facebook.com/{settings.WHATSAPP_API_VERSION}/{phone_id}/messages"
     
     headers = {
         "Authorization": f"Bearer {access_token}",

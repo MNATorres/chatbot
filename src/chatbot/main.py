@@ -1,3 +1,4 @@
+from collections import deque
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,6 +21,9 @@ async def lifespan(app: FastAPI):
         # Inyectamos instacias listas para usarse en las rutas HTTP
         app.state.mcp_client = mcp_client
         app.state.mcp_host = ChatbotHost()
+        # IDs de mensajes de WhatsApp ya procesados (dedup). Acotado en memoria:
+        # Meta entrega "at least once", así que el mismo id puede llegar repetido.
+        app.state.whatsapp_seen_ids = deque(maxlen=1000)
         yield
 
 # Configuracion central del FastAPI
