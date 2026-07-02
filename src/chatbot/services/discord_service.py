@@ -1,13 +1,14 @@
 import discord
-import os
 from loguru import logger
+
+from chatbot.config import settings
 
 async def send_discord_message(channel_id: int, text: str):
     intents = discord.Intents.default()
     client = discord.Client(intents=intents)
     
     try:
-        await client.login(os.getenv("DISCORD_TOKEN"))
+        await client.login(settings.DISCORD_TOKEN)
         channel = await client.fetch_channel(channel_id)
         await channel.send(text)
         return True
@@ -23,7 +24,7 @@ async def fetch_channel_history(channel_id: int, limit: int = 10):
     client = discord.Client(intents=intents)
     
     try:
-        await client.login(os.getenv("DISCORD_TOKEN"))
+        await client.login(settings.DISCORD_TOKEN)
         channel = await client.fetch_channel(channel_id)
         messages = []
         async for msg in channel.history(limit=limit):
@@ -40,7 +41,7 @@ async def fetch_all_channels():
     client = discord.Client(intents=intents)
     
     try:
-        await client.login(os.getenv("DISCORD_TOKEN"))
+        await client.login(settings.DISCORD_TOKEN)
         channels_info = []
         async for guild in client.fetch_guilds(limit=150):
             channels = await guild.fetch_channels()

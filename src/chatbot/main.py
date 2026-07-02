@@ -2,16 +2,15 @@ from collections import deque
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
 from loguru import logger
 
 # Importamos exclusivamente los componentes independientes
+# (la config se lee vía pydantic-settings, que carga el .env por sí solo).
 from chatbot.logging_config import configure_logging
 from chatbot.mcp_client import get_mcp_client
 from chatbot.mcp_host import ChatbotHost
 from chatbot.routes import router
 
-load_dotenv()
 configure_logging()
 
 @asynccontextmanager

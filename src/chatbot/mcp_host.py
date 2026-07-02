@@ -2,6 +2,7 @@ import asyncio
 
 from anthropic import AsyncAnthropic
 from loguru import logger
+from chatbot.config import settings
 from chatbot.mcp_client import MCPClientManager
 
 # Presupuesto de salida por turno. 1024 cortaba respuestas largas (ej: listar
@@ -11,7 +12,7 @@ MAX_TOKENS = 8192
 class ChatbotHost:
     """Actúa como el 'Host' central, inyectando dependencias al modelo de IA."""
     def __init__(self):
-        self.anthropic = AsyncAnthropic()
+        self.anthropic = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
 
     async def _run_tool(self, mcp_client: MCPClientManager, tool_use) -> dict:
         """Ejecuta una tool vía el cliente MCP y devuelve su bloque tool_result."""
