@@ -1,5 +1,6 @@
 """Tests de `send_whatsapp_message`: reescritura de números en sandbox,
 éxito y manejo de errores HTTP. httpx se mockea (sin red)."""
+
 import httpx
 import pytest
 
@@ -20,6 +21,7 @@ class _FakeResponse:
 
 class _FakeAsyncClient:
     """Reemplaza a httpx.AsyncClient; captura la última llamada POST."""
+
     ultima_llamada = {}
 
     def __init__(self, status_code=200):

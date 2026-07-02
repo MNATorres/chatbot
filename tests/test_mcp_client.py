@@ -1,5 +1,6 @@
 """Tests de `MCPClientManager`: mapeo de tools tras initialize y delegación
 de call_tool a la sesión MCP."""
+
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 

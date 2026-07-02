@@ -3,6 +3,7 @@ from loguru import logger
 
 from chatbot.config import settings
 
+
 async def send_whatsapp_message(phone_number: str, message: str) -> bool:
     """Envía un mensaje de texto de WhatsApp a un usuario mediante la Cloud API de Meta"""
 
@@ -18,23 +19,17 @@ async def send_whatsapp_message(phone_number: str, message: str) -> bool:
 
     # URL oficial de la API de WhatsApp
     url = f"https://graph.facebook.com/{settings.WHATSAPP_API_VERSION}/{phone_id}/messages"
-    
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json"
-    }
-    
+
+    headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+
     # Forma del mensaje (texto plano de envio normal)
     payload = {
         "messaging_product": "whatsapp",
         "to": phone_number,
         "type": "text",
-        "text": {
-            "preview_url": False,
-            "body": message
-        }
+        "text": {"preview_url": False, "body": message},
     }
-    
+
     async with httpx.AsyncClient() as client:
         try:
             # Mandar la respuesta hacia Meta
@@ -43,7 +38,9 @@ async def send_whatsapp_message(phone_number: str, message: str) -> bool:
             logger.info(f"✅ Respuesta enviada por WhatsApp a {phone_number}")
             return True
         except httpx.HTTPStatusError as e:
-            logger.error(f"❌ Error al enviar mensaje por WhatsApp (Status {e.response.status_code}): {e.response.text}")
+            logger.error(
+                f"❌ Error al enviar mensaje por WhatsApp (Status {e.response.status_code}): {e.response.text}"
+            )
             return False
         except Exception as e:
             logger.error(f"❌ Error interno de red mandando WhatsApp: {str(e)}")

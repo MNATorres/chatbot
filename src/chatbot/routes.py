@@ -10,10 +10,12 @@ from chatbot.services.whatsapp import send_whatsapp_message
 
 router = APIRouter()
 
+
 @router.get("/")
 async def health_check(request: Request):
     """Verifica si el servidor HTTP responde y si el cliente MCP fue inicializado en el estado local."""
     return {"status": "online", "mcp_connected": hasattr(request.app.state, "mcp_client")}
+
 
 @router.post("/ask")
 async def ask_ai(request: Request, message: str = Body(..., embed=True)):
@@ -27,7 +29,9 @@ async def ask_ai(request: Request, message: str = Body(..., embed=True)):
 
     return {"answer": answer}
 
+
 # 🔥 RUTAS DE WHATSAPP 🔥
+
 
 def _firma_meta_valida(body: bytes, signature_header: str | None) -> bool:
     """Valida el header X-Hub-Signature-256 (HMAC-SHA256 del body con el App Secret).
@@ -64,7 +68,7 @@ async def _procesar_mensaje_whatsapp(mcp_host, mcp_client, sender: str, text_bod
 async def verify_whatsapp_webhook(
     hub_mode: str = Query(None, alias="hub.mode"),
     hub_challenge: str = Query(None, alias="hub.challenge"),
-    hub_verify_token: str = Query(None, alias="hub.verify_token")
+    hub_verify_token: str = Query(None, alias="hub.verify_token"),
 ):
     """(PASO 1) Meta verifica que el Webhook nos pertenezca."""
     verify_token = settings.WHATSAPP_VERIFY_TOKEN

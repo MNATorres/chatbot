@@ -3,6 +3,7 @@
 Sin esta validación cualquiera podría inyectar mensajes falsos y hacer que
 enviemos WhatsApps arbitrarios desde nuestra cuenta.
 """
+
 import hashlib
 import hmac
 

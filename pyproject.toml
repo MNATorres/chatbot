@@ -38,9 +38,20 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-q"
 
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint.per-file-ignores]
+# mcp_server.py importa los módulos de tools/ SOLO por su efecto secundario
+# (registrar las @mcp.tool()). No son imports sin usar: son imprescindibles.
+"src/chatbot/mcp_server.py" = ["F401"]
+
 [tool.coverage.run]
 source = ["chatbot"]
 omit = ["*/tests/*"]
+
+[tool.coverage.report]
+fail_under = 80
 
 [build-system]
 requires = ["hatchling"]

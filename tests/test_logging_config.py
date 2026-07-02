@@ -1,5 +1,6 @@
 """Test mínimo de la configuración de logging: que corre sin error y que el
 InterceptHandler traduce un registro estándar a loguru."""
+
 import logging
 
 from chatbot.logging_config import configure_logging, InterceptHandler

@@ -1,5 +1,6 @@
 """Tests del webhook de WhatsApp end-to-end (con TestClient): firma, dedup,
 manejo de no-texto, verificación GET y disparo del procesamiento en background."""
+
 import hashlib
 import hmac
 import json
@@ -61,6 +62,7 @@ def _post(client, payload, firmar=True):
 
 # --- Firma ---
 
+
 def test_firma_invalida_devuelve_403(app, enviar_mock):
     with TestClient(app) as client:
         body = json.dumps(_payload()).encode()
@@ -77,6 +79,7 @@ def test_sin_header_de_firma_devuelve_403(app, enviar_mock):
 
 # --- Mensaje de texto válido: 200 + procesamiento en background ---
 
+
 def test_mensaje_texto_valido_dispara_procesamiento(app, enviar_mock):
     with TestClient(app) as client:
         r = _post(client, _payload(body="cuántos empleados hay"))
@@ -89,6 +92,7 @@ def test_mensaje_texto_valido_dispara_procesamiento(app, enviar_mock):
 
 # --- Deduplicación ---
 
+
 def test_mensaje_duplicado_se_procesa_una_sola_vez(app, enviar_mock):
     with TestClient(app) as client:
         r1 = _post(client, _payload(message_id="wamid.dup"))
@@ -98,6 +102,7 @@ def test_mensaje_duplicado_se_procesa_una_sola_vez(app, enviar_mock):
 
 
 # --- No-texto ---
+
 
 def test_mensaje_no_texto_avisa_y_no_procesa(app, enviar_mock):
     with TestClient(app) as client:
@@ -111,6 +116,7 @@ def test_mensaje_no_texto_avisa_y_no_procesa(app, enviar_mock):
 
 # --- Payload sin 'messages' (notificación de estado) se ignora ---
 
+
 def test_notificacion_sin_messages_se_ignora(app, enviar_mock):
     payload = {"entry": [{"changes": [{"value": {"statuses": [{"status": "delivered"}]}}]}]}
     with TestClient(app) as client:
@@ -121,28 +127,36 @@ def test_notificacion_sin_messages_se_ignora(app, enviar_mock):
 
 # --- Verificación GET del webhook ---
 
+
 def test_verificacion_get_token_correcto(app):
     with TestClient(app) as client:
-        r = client.get("/webhook/whatsapp", params={
-            "hub.mode": "subscribe",
-            "hub.challenge": "998877",
-            "hub.verify_token": VERIFY_TOKEN,
-        })
+        r = client.get(
+            "/webhook/whatsapp",
+            params={
+                "hub.mode": "subscribe",
+                "hub.challenge": "998877",
+                "hub.verify_token": VERIFY_TOKEN,
+            },
+        )
     assert r.status_code == 200
     assert r.json() == 998877
 
 
 def test_verificacion_get_token_incorrecto(app):
     with TestClient(app) as client:
-        r = client.get("/webhook/whatsapp", params={
-            "hub.mode": "subscribe",
-            "hub.challenge": "998877",
-            "hub.verify_token": "token-equivocado",
-        })
+        r = client.get(
+            "/webhook/whatsapp",
+            params={
+                "hub.mode": "subscribe",
+                "hub.challenge": "998877",
+                "hub.verify_token": "token-equivocado",
+            },
+        )
     assert r.status_code == 403
 
 
 # --- Payload firmado pero malformado (no se procesa, no rompe) ---
+
 
 def test_payload_no_json_se_ignora(app, enviar_mock):
     body = b"esto no es json"
@@ -155,6 +169,7 @@ def test_payload_no_json_se_ignora(app, enviar_mock):
 
 # --- Una excepción en el procesamiento no debe romper (se loguea) ---
 
+
 def test_error_en_procesamiento_no_crashea(app, enviar_mock):
     app.state.mcp_host.process_message = AsyncMock(side_effect=RuntimeError("boom"))
     with TestClient(app) as client:
@@ -166,6 +181,7 @@ def test_error_en_procesamiento_no_crashea(app, enviar_mock):
 
 # --- Endpoint /ask ---
 
+
 def test_ask_delega_al_host(app):
     with TestClient(app) as client:
         r = client.post("/ask", json={"message": "hola"})
@@ -175,6 +191,7 @@ def test_ask_delega_al_host(app):
 
 
 # --- Health check ---
+
 
 def test_health_check_reporta_mcp_conectado(app):
     with TestClient(app) as client:

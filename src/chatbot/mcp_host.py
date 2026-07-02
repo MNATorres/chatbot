@@ -9,8 +9,10 @@ from chatbot.mcp_client import MCPClientManager
 # 50 filas + resumen de varios canales) a mitad de palabra.
 MAX_TOKENS = 8192
 
+
 class ChatbotHost:
     """Actúa como el 'Host' central, inyectando dependencias al modelo de IA."""
+
     def __init__(self):
         self.anthropic = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
 
@@ -38,14 +40,14 @@ class ChatbotHost:
         logger.info(f"💬 Mensaje entrante: {message}")
 
         for i in range(10):
-            logger.info(f"🧠 Intento de Razonamiento #{i+1}")
-            
+            logger.info(f"🧠 Intento de Razonamiento #{i + 1}")
+
             # 1. Petición a Claude
             response = await self.anthropic.messages.create(
-                model="claude-sonnet-4-5-20250929", # Modelo que utilices
+                model="claude-sonnet-4-5-20250929",  # Modelo que utilices
                 max_tokens=MAX_TOKENS,
                 tools=mcp_client.tools,  # Obtenido desde el cliente
-                messages=messages
+                messages=messages,
             )
 
             # 2. Análisis del output (Logs de pensamiento y decisión)
@@ -64,8 +66,7 @@ class ChatbotHost:
                 if response.stop_reason == "max_tokens":
                     logger.warning("⚠️ Respuesta truncada por max_tokens.")
                     final_text += (
-                        "\n\n⚠️ [Respuesta truncada por longitud máxima. "
-                        "Pedime que continúe o acotá la consulta.]"
+                        "\n\n⚠️ [Respuesta truncada por longitud máxima. Pedime que continúe o acotá la consulta.]"
                     )
                 return final_text
 
@@ -79,9 +80,6 @@ class ChatbotHost:
 
             # 4. Alimentamos el contexto de memoria
             messages.append({"role": "assistant", "content": response.content})
-            messages.append({
-                "role": "user",
-                "content": tool_results_content
-            })
-            
+            messages.append({"role": "user", "content": tool_results_content})
+
         return "Lo siento, alcancé el límite de razonamiento interno sin llegar a una conclusión."

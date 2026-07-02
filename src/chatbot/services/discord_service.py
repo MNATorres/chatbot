@@ -3,10 +3,11 @@ from loguru import logger
 
 from chatbot.config import settings
 
+
 async def send_discord_message(channel_id: int, text: str):
     intents = discord.Intents.default()
     client = discord.Client(intents=intents)
-    
+
     try:
         await client.login(settings.DISCORD_TOKEN)
         channel = await client.fetch_channel(channel_id)
@@ -18,11 +19,12 @@ async def send_discord_message(channel_id: int, text: str):
     finally:
         await client.close()
 
+
 async def fetch_channel_history(channel_id: int, limit: int = 10):
     intents = discord.Intents.default()
     intents.message_content = True
     client = discord.Client(intents=intents)
-    
+
     try:
         await client.login(settings.DISCORD_TOKEN)
         channel = await client.fetch_channel(channel_id)
@@ -36,10 +38,11 @@ async def fetch_channel_history(channel_id: int, limit: int = 10):
     finally:
         await client.close()
 
+
 async def fetch_all_channels():
     intents = discord.Intents.default()
     client = discord.Client(intents=intents)
-    
+
     try:
         await client.login(settings.DISCORD_TOKEN)
         channels_info = []

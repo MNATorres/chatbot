@@ -6,6 +6,7 @@ que TODO salga con un único formato unificado.
 
 Se configura una sola vez al importar `main.py`.
 """
+
 import logging
 import sys
 

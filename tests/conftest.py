@@ -3,6 +3,7 @@
 Todo se corre sin red ni base de datos real: las dependencias externas
 (Anthropic, MySQL, Discord, Meta) se mockean.
 """
+
 import os
 from types import SimpleNamespace
 
@@ -12,6 +13,7 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
 
 
 # --- Factories para simular respuestas de la API de Claude ---
+
 
 def text_block(text: str):
     """Bloque de tipo 'text' de una respuesta de Claude."""

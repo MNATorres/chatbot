@@ -1,6 +1,7 @@
 """Tests de `query_production_db`: la validación de solo-lectura (lista blanca
 de comandos + lista negra de palabras) es la superficie de seguridad más crítica.
 """
+
 from types import SimpleNamespace
 
 import pytest
@@ -10,6 +11,7 @@ from chatbot.tools.db_tools import query_production_db
 
 
 # --- Helpers para mockear SessionLocal (sin MySQL real) ---
+
 
 class _FakeResult:
     def __init__(self, rows):
@@ -40,30 +42,38 @@ def _mock_db(monkeypatch, rows):
 
 # --- Rechazos: no deberían tocar la DB siquiera ---
 
-@pytest.mark.parametrize("sql", [
-    "DELETE FROM employees",
-    "UPDATE employees SET salary = 0",
-    "DROP TABLE employees",
-    "INSERT INTO t VALUES (1)",
-    "TRUNCATE employees",
-    "  CREATE TABLE x (id int)",
-])
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "DELETE FROM employees",
+        "UPDATE employees SET salary = 0",
+        "DROP TABLE employees",
+        "INSERT INTO t VALUES (1)",
+        "TRUNCATE employees",
+        "  CREATE TABLE x (id int)",
+    ],
+)
 async def test_rechaza_comandos_que_no_empiezan_permitidos(sql):
     res = await query_production_db(sql)
     assert res.startswith("Error: La consulta debe empezar")
 
 
-@pytest.mark.parametrize("sql", [
-    "SELECT * FROM t; DROP TABLE t",
-    "WITH x AS (SELECT 1) DELETE FROM t",
-    "SELECT * FROM t WHERE id IN (SELECT id FROM t); UPDATE t SET a=1",
-])
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT * FROM t; DROP TABLE t",
+        "WITH x AS (SELECT 1) DELETE FROM t",
+        "SELECT * FROM t WHERE id IN (SELECT id FROM t); UPDATE t SET a=1",
+    ],
+)
 async def test_rechaza_palabras_prohibidas_aunque_empiece_permitido(sql):
     res = await query_production_db(sql)
     assert "palabras prohibidas" in res
 
 
 # --- Casos permitidos: llegan a la DB (mockeada) ---
+
 
 async def test_select_valido_devuelve_filas(monkeypatch):
     _mock_db(monkeypatch, [SimpleNamespace(_mapping={"emp_no": 1, "name": "Ana"})])

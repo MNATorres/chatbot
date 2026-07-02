@@ -1,8 +1,7 @@
 """Tests del bucle ReAct de `ChatbotHost`: salida, tool use, paralelismo,
 truncado por max_tokens y el límite de iteraciones."""
-from unittest.mock import AsyncMock, MagicMock
 
-import pytest
+from unittest.mock import AsyncMock, MagicMock
 
 from chatbot.mcp_host import ChatbotHost, MAX_TOKENS
 from tests.conftest import anthropic_response, text_block, tool_use_block, tool_result
@@ -28,6 +27,7 @@ def _mock_client(tool_output="resultado de la tool"):
 
 # --- Salida directa (sin tools) ---
 
+
 async def test_respuesta_directa_sin_tools():
     host = _host(create_return=anthropic_response([text_block("Hola!")], "end_turn"))
     client = _mock_client()
@@ -43,6 +43,7 @@ async def test_respuesta_directa_sin_tools():
 
 # --- Truncado por max_tokens ---
 
+
 async def test_max_tokens_agrega_aviso_de_truncado():
     host = _host(create_return=anthropic_response([text_block("texto cortado")], "max_tokens"))
     res = await host.process_message("dame 50 filas", _mock_client())
@@ -52,6 +53,7 @@ async def test_max_tokens_agrega_aviso_de_truncado():
 
 
 # --- Tool use: un turno con tool, luego respuesta final ---
+
 
 async def test_ejecuta_tool_y_devuelve_respuesta_final():
     turno1 = anthropic_response([tool_use_block("query_production_db", {"sql": "SELECT 1"})], "tool_use")
@@ -67,6 +69,7 @@ async def test_ejecuta_tool_y_devuelve_respuesta_final():
 
 
 # --- Varias tools en un mismo turno (paralelismo con gather) ---
+
 
 async def test_varias_tools_en_un_turno():
     turno1 = anthropic_response(
@@ -88,11 +91,10 @@ async def test_varias_tools_en_un_turno():
 
 # --- Límite de 10 iteraciones ---
 
+
 async def test_limite_de_iteraciones():
     # Claude pide tools indefinidamente => se corta a las 10 vueltas.
-    siempre_tool = anthropic_response(
-        [tool_use_block("query_production_db", {"sql": "SELECT 1"})], "tool_use"
-    )
+    siempre_tool = anthropic_response([tool_use_block("query_production_db", {"sql": "SELECT 1"})], "tool_use")
     host = _host(create_return=siempre_tool)
     client = _mock_client()
 
@@ -103,6 +105,7 @@ async def test_limite_de_iteraciones():
 
 
 # --- _run_tool: truncado a 40000 chars ---
+
 
 async def test_run_tool_trunca_resultados_gigantes():
     host = ChatbotHost()

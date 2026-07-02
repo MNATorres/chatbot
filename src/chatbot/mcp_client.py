@@ -6,13 +6,14 @@ from loguru import logger
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
+
 class MCPClientManager:
     """Encapsula la sesión de MCP para invocar herramientas en el subproceso servidor."""
-    
+
     def __init__(self, session: ClientSession):
         self.session = session
         self.tools = []
-        
+
     async def initialize(self):
         """Negocia las capacidades y extrae las herramientas del servidor."""
         await self.session.initialize()
@@ -22,22 +23,22 @@ class MCPClientManager:
                 "name": tool.name,
                 "description": tool.description,
                 "input_schema": tool.inputSchema,
-            } for tool in tools_res.tools
+            }
+            for tool in tools_res.tools
         ]
-        
+
     async def call_tool(self, name: str, arguments: dict):
         """Ejecuta una herramienta de MCP en el servidor y retorna el resultado."""
         return await self.session.call_tool(name, arguments=arguments)
+
 
 @asynccontextmanager
 async def get_mcp_client() -> AsyncGenerator[MCPClientManager, None]:
     """Levanta el subproceso mcp_server.py y devuelve el cliente inicializado."""
     server_params = StdioServerParameters(
-        command="uv",
-        args=["run", "python", "src/chatbot/mcp_server.py"],
-        env={**os.environ, "PYTHONPATH": "src"}
+        command="uv", args=["run", "python", "src/chatbot/mcp_server.py"], env={**os.environ, "PYTHONPATH": "src"}
     )
-    
+
     # Aquí es donde se establece la Capa de Transporte y la Capa de Datos
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:
