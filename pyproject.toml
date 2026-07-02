@@ -24,6 +24,7 @@ dependencies = [
 
 [project.scripts]
 start = "chatbot.main:start"
+test = "chatbot.main:test"
 
 [dependency-groups]
 dev = [

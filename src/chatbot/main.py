@@ -46,3 +46,10 @@ app.include_router(router)
 def start():
     import uvicorn
     uvicorn.run("chatbot.main:app", host="127.0.0.1", port=8000, reload=True)
+
+def test():
+    """Corre la suite de tests: `uv run test` (acepta args, ej: `uv run test -k webhook`)."""
+    import sys
+    import pytest
+    # Reenvía cualquier argumento extra a pytest (la config vive en pyproject.toml).
+    raise SystemExit(pytest.main(sys.argv[1:]))
