@@ -2,6 +2,7 @@ import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+from loguru import logger
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
@@ -42,8 +43,8 @@ async def get_mcp_client() -> AsyncGenerator[MCPClientManager, None]:
         async with ClientSession(read, write) as session:
             client = MCPClientManager(session)
             await client.initialize()
-            print(f"✅ Conectado al Subproceso MCP. Herramientas listas: {[t['name'] for t in client.tools]}")
-            
+            logger.info(f"✅ Conectado al Subproceso MCP. Herramientas listas: {[t['name'] for t in client.tools]}")
+
             yield client
-            
-    print("🛑 Conexión MCP cerrada correctamente.")
+
+    logger.info("🛑 Conexión MCP cerrada correctamente.")

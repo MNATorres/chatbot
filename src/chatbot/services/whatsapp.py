@@ -1,4 +1,5 @@
 import httpx
+from loguru import logger
 
 from chatbot.config import settings
 
@@ -39,11 +40,11 @@ async def send_whatsapp_message(phone_number: str, message: str) -> bool:
             # Mandar la respuesta hacia Meta
             response = await client.post(url, json=payload, headers=headers)
             response.raise_for_status()
-            print(f"✅ Respuesta enviada por WhatsApp a {phone_number}")
+            logger.info(f"✅ Respuesta enviada por WhatsApp a {phone_number}")
             return True
         except httpx.HTTPStatusError as e:
-            print(f"❌ Error al enviar mensaje por WhatsApp (Status {e.response.status_code}): {e.response.text}")
+            logger.error(f"❌ Error al enviar mensaje por WhatsApp (Status {e.response.status_code}): {e.response.text}")
             return False
         except Exception as e:
-            print(f"❌ Error interno de red mandando WhatsApp: {str(e)}")
+            logger.error(f"❌ Error interno de red mandando WhatsApp: {str(e)}")
             return False

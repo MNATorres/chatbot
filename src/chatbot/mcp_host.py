@@ -1,6 +1,7 @@
 import asyncio
 
 from anthropic import AsyncAnthropic
+from loguru import logger
 from chatbot.mcp_client import MCPClientManager
 
 # Presupuesto de salida por turno. 1024 cortaba respuestas largas (ej: listar
@@ -22,7 +23,7 @@ class ChatbotHost:
         if len(result_text) > 40000:
             result_text = result_text[:40000] + "\n...[TRUNCADO POR LONGITUD MÁXIMA ALCANZADA]"
 
-        print(f"📊 Resultado desde MCP Server: {result_text[:100]}...")
+        logger.debug(f"📊 Resultado desde MCP Server: {result_text[:100]}...")
 
         return {
             "type": "tool_result",
@@ -33,10 +34,10 @@ class ChatbotHost:
     async def process_message(self, message: str, mcp_client: MCPClientManager) -> str:
         """Contiene el ciclo de razonamiento (ReAct) de 10 iteraciones de Claude."""
         messages = [{"role": "user", "content": message}]
-        print(f"message: {message}")
-        
+        logger.info(f"💬 Mensaje entrante: {message}")
+
         for i in range(10):
-            print(f"\n--- 🧠 Intento de Razonamiento #{i+1} ---")
+            logger.info(f"🧠 Intento de Razonamiento #{i+1}")
             
             # 1. Petición a Claude
             response = await self.anthropic.messages.create(
@@ -49,10 +50,10 @@ class ChatbotHost:
             # 2. Análisis del output (Logs de pensamiento y decisión)
             for block in response.content:
                 if block.type == "text":
-                    print(f"💭 Claude piensa: {block.text}")
+                    logger.debug(f"💭 Claude piensa: {block.text}")
                 if block.type == "tool_use":
-                    print(f"🛠️ Claude decide usar la tool: {block.name}")
-                    print(f"📝 Comando generado: {block.input}")
+                    logger.info(f"🛠️ Claude decide usar la tool: {block.name}")
+                    logger.debug(f"📝 Comando generado: {block.input}")
 
             # Condición de salida: Si no usó herramientas, la respuesta principal es texto final.
             if response.stop_reason != "tool_use":
@@ -60,7 +61,7 @@ class ChatbotHost:
                 # Si Claude se quedó sin presupuesto de salida, la respuesta está
                 # cortada: avisamos en vez de devolver texto truncado en silencio.
                 if response.stop_reason == "max_tokens":
-                    print("⚠️ Respuesta truncada por max_tokens.")
+                    logger.warning("⚠️ Respuesta truncada por max_tokens.")
                     final_text += (
                         "\n\n⚠️ [Respuesta truncada por longitud máxima. "
                         "Pedime que continúe o acotá la consulta.]"

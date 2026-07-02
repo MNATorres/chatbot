@@ -3,6 +3,7 @@ import hmac
 import json
 
 from fastapi import APIRouter, Request, Body, Query, HTTPException, BackgroundTasks
+from loguru import logger
 
 from chatbot.config import settings
 from chatbot.services.whatsapp import send_whatsapp_message
@@ -37,7 +38,7 @@ def _firma_meta_valida(body: bytes, signature_header: str | None) -> bool:
     app_secret = settings.WHATSAPP_APP_SECRET
     if not app_secret:
         # Sin secreto configurado no podemos validar: rechazamos por seguridad.
-        print("⚠️ WHATSAPP_APP_SECRET no configurado; se rechaza el webhook.")
+        logger.warning("⚠️ WHATSAPP_APP_SECRET no configurado; se rechaza el webhook.")
         return False
     if not signature_header or not signature_header.startswith("sha256="):
         return False
@@ -50,13 +51,13 @@ def _firma_meta_valida(body: bytes, signature_header: str | None) -> bool:
 
 async def _procesar_mensaje_whatsapp(mcp_host, mcp_client, sender: str, text_body: str):
     """Corre el bucle ReAct y responde por WhatsApp. Se ejecuta en background."""
-    print(f"\n💬 MSJ de WhatsApp [{sender}]: {text_body}")
+    logger.info(f"💬 MSJ de WhatsApp [{sender}]: {text_body}")
     try:
         answer = await mcp_host.process_message(text_body, mcp_client)
         await send_whatsapp_message(sender, answer)
-    except Exception as e:
+    except Exception:
         # No dejamos que una excepción del procesamiento se pierda en silencio.
-        print(f"❌ Error procesando el mensaje de WhatsApp [{sender}]: {e}")
+        logger.exception(f"❌ Error procesando el mensaje de WhatsApp [{sender}]")
 
 
 @router.get("/webhook/whatsapp")
@@ -74,7 +75,7 @@ async def verify_whatsapp_webhook(
         and hub_verify_token is not None
         and hmac.compare_digest(hub_verify_token, verify_token)
     ):
-        print("✅ Webhook verificado por Meta exitosamente")
+        logger.info("✅ Webhook verificado por Meta exitosamente")
         return int(hub_challenge)
     raise HTTPException(status_code=403, detail="Error de validación del webhook")
 
@@ -112,7 +113,7 @@ async def receive_whatsapp_message(request: Request, background_tasks: Backgroun
     # 3. Deduplicación: Meta entrega "at least once", el mismo id puede repetirse.
     seen = request.app.state.whatsapp_seen_ids
     if message_id and message_id in seen:
-        print(f"↩️ Mensaje duplicado ignorado: {message_id}")
+        logger.info(f"↩️ Mensaje duplicado ignorado: {message_id}")
         return {"status": "ok"}
     if message_id:
         seen.append(message_id)

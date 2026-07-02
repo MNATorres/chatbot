@@ -1,5 +1,6 @@
 import discord
 import os
+from loguru import logger
 
 async def send_discord_message(channel_id: int, text: str):
     intents = discord.Intents.default()
@@ -10,8 +11,8 @@ async def send_discord_message(channel_id: int, text: str):
         channel = await client.fetch_channel(channel_id)
         await channel.send(text)
         return True
-    except Exception as e:
-        print(f"Error en Discord: {e}")
+    except Exception:
+        logger.exception("Error en Discord")
         return False
     finally:
         await client.close()
@@ -28,8 +29,8 @@ async def fetch_channel_history(channel_id: int, limit: int = 10):
         async for msg in channel.history(limit=limit):
             messages.append(f"{msg.author.name}: {msg.content}")
         return messages
-    except Exception as e:
-        print(f"Error fetching Discord history: {e}")
+    except Exception:
+        logger.exception("Error fetching Discord history")
         return []
     finally:
         await client.close()
@@ -47,8 +48,8 @@ async def fetch_all_channels():
                 if isinstance(ch, discord.TextChannel):
                     channels_info.append(f"Server: {guild.name} | Channel: {ch.name} | ID: {ch.id}")
         return channels_info
-    except Exception as e:
-        print(f"Error fetching all channels: {e}")
+    except Exception:
+        logger.exception("Error fetching all channels")
         return []
     finally:
         await client.close()

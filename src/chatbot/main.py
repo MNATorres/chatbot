@@ -3,18 +3,21 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from loguru import logger
 
 # Importamos exclusivamente los componentes independientes
+from chatbot.logging_config import configure_logging
 from chatbot.mcp_client import get_mcp_client
 from chatbot.mcp_host import ChatbotHost
 from chatbot.routes import router
 
 load_dotenv()
+configure_logging()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Orquestador principal: levanta el cliente MCP y lo inyecta a la memoria global."""
-    print("🚀 Levantando todo el ecosistema de la aplicación...")
+    logger.info("🚀 Levantando todo el ecosistema de la aplicación...")
     
     # Obtenemos la conexión con el servidor MCP
     async with get_mcp_client() as mcp_client:
