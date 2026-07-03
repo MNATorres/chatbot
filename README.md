@@ -25,30 +25,31 @@ entrega a **Claude**, y le da acceso a un conjunto de **herramientas (tools)** p
 través del **Model Context Protocol**.
 
 El modelo decide de forma autónoma qué herramientas usar —consultar la base de datos,
-leer o enviar mensajes en Discord, etc.— en un **bucle de razonamiento ReAct** hasta
-construir una respuesta final, que luego se devuelve al canal de origen.
+buscar en la base de conocimiento interna, leer o enviar mensajes en Discord, etc.— en un
+**bucle de razonamiento ReAct** hasta construir una respuesta final, que luego se devuelve
+al canal de origen.
 
 ```
    Usuario                          Backend (FastAPI)                       Herramientas
  ┌─────────┐   POST /ask        ┌────────────────────────┐
- │  HTTP   │ ─────────────────► │                        │
+ │  HTTP   │ ───────────────► │                        │
  ├─────────┤   webhook Meta     │      routes.py         │
- │WhatsApp │ ─────────────────► │          │             │
+ │WhatsApp │ ───────────────► │          │             │
  ├─────────┤   gateway WS       │          ▼             │
- │ Discord │ ─────────────────► │    ChatbotHost         │
+ │ Discord │ ───────────────► │    ChatbotHost         │
  └─────────┘                    │  (bucle ReAct, Claude) │
                                 │          │             │
                                 │          ▼             │
-                                │   MCPClientManager  ◄──┼──── stdio ───┐
+                                │   MCPClientManager  ◄───┴──── stdio ───┐
                                 └────────────────────────┘              │
                                                                         ▼
-                                                          ┌──────────────────────────┐
+                                                          ┌────────────────────────┐
                                                           │   mcp_server.py (FastMCP) │
                                                           │   ├─ query_production_db  │──► 🗄️ MySQL
+                                                          │   ├─ search_knowledge_base│──► 📚 knowledge/
                                                           │   ├─ list_discord_channels│──► 🎮 Discord
-                                                          │   ├─ read_channel_messages│
                                                           │   └─ send_message_to_...  │
-                                                          └──────────────────────────┘
+                                                          └────────────────────────┘
 ```
 
 ---
@@ -62,6 +63,8 @@ construir una respuesta final, que luego se devuelve al canal de origen.
 - 🗄️ **Consultas a base de datos en lenguaje natural** — el modelo traduce preguntas a SQL
   de **solo lectura**, con validación estricta (lista blanca de comandos + lista negra de
   palabras peligrosas).
+- 📚 **Base de conocimiento (RAG)** — busca por significado (embeddings + similitud coseno)
+  sobre documentos propios (normativas, instructivos) para responder con contexto real.
 - 📱 **Multicanal** — un mismo cerebro responde por **API REST**, **WhatsApp** (Meta Cloud
   API) y **Discord**.
 - ⚡ **100% asíncrono** — FastAPI + SQLAlchemy async + aiomysql + httpx, sin bloquear el
@@ -81,6 +84,7 @@ servidor de herramientas corre como un proceso aparte.
 
 ```text
 chatbot/
+├── knowledge/                 # 📚 Documentos fuente para RAG (.md) + indice generado
 ├── src/chatbot/
 │   ├── main.py              # 🚀 App FastAPI + CORS; lifespan que inyecta cliente MCP y host
 │   ├── routes.py            # 🛣️  Endpoints HTTP (/ask, health, webhooks de WhatsApp)
@@ -90,17 +94,22 @@ chatbot/
 │   ├── app.py               # ⚙️  Instancia FastMCP + lifespan de la base de datos
 │   ├── config.py            # 🔐 Settings tipados con Pydantic (lee variables de entorno)
 │   ├── database.py          # 🗄️  Engine async de SQLAlchemy + fábrica de sesiones
+│   ├── rag/                 # 📚 Pipeline de RAG
+│   │   ├── chunking.py      #   Parte documentos en fragmentos
+│   │   ├── embeddings.py    #   Cliente de embeddings (OpenAI)
+│   │   ├── store.py         #   Vector store local (NumPy, similitud coseno)
+│   │   └── ingest.py        #   Script de ingesta (se corre a mano)
 │   ├── services/            # 📡 Conectores externos
 │   │   ├── discord_service.py  #   🎮 Cliente de Discord (login, leer/enviar, listar canales)
 │   │   └── whatsapp.py         #   📱 Envío de mensajes vía Meta Cloud API
 │   └── tools/               # 🧰 Herramientas expuestas al modelo vía MCP
 │       ├── db_tools.py         #   📊 query_production_db (SQL de solo lectura validado)
 │       ├── discord_tools.py    #   🎮 Enviar / leer / listar canales de Discord
-│       └── rag_tools.py        #   🧠 (Reservado para RAG — aún no implementado)
-├── docker/mysql/init/       # 🐳 Scripts SQL de inicialización (base de ejemplo employees)
+│       └── rag_tools.py        #   📚 search_knowledge_base (busqueda semantica)
+├── docker/mysql/init/       # 🐳 Scripts SQL de inicializacion (base de ejemplo employees)
 ├── docker-compose.yml       # 🐳 MySQL 8.0 + phpMyAdmin
 ├── pyproject.toml           # 📦 Dependencias y script `start`
-└── MPC_INSPECTOR.md         # 🔍 Guía para depurar las tools con el MCP Inspector
+└── MPC_INSPECTOR.md         # 🔍 Guia para depurar las tools con el MCP Inspector
 ```
 
 ### Flujo de una petición
@@ -125,6 +134,8 @@ chatbot/
 | **[Model Context Protocol](https://modelcontextprotocol.io/)** | Estándar que conecta el agente con las herramientas (vía `FastMCP`). |
 | **[FastAPI](https://fastapi.tiangolo.com/)** + **[Uvicorn](https://www.uvicorn.org/)** | Servidor web asíncrono de alto rendimiento y los endpoints HTTP. |
 | **[SQLAlchemy 2.0](https://www.sqlalchemy.org/)** + **[aiomysql](https://github.com/aio-libs/aiomysql)** | ORM y driver async para hablar con MySQL sin bloquear. |
+| **OpenAI embeddings** (`text-embedding-3-small`) | Convierte texto en vectores para la busqueda semantica del RAG. |
+| **NumPy** | Similitud coseno del vector store local, sin libreria de vectores externa. |
 | **[Pydantic Settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/)** | Carga y validación tipada de la configuración (`.env`). |
 | **[discord.py](https://discordpy.readthedocs.io/)** | Cliente para leer y enviar mensajes en Discord. |
 | **[httpx](https://www.python-httpx.org/)** | Cliente HTTP async para la Meta Cloud API de WhatsApp. |
@@ -138,9 +149,10 @@ chatbot/
 ### 1. Requisitos previos
 
 - **Python 3.13+**
-- **[uv](https://docs.astral.sh/uv/getting-started/installation/)** (`pip install uv` si aún no lo tienes)
+- **[uv](https://docs.astral.sh/uv/getting-started/installation/)** (`pip install uv` si aun no lo tienes)
 - **Docker** (para la base de datos local)
 - Una **API key de Anthropic**
+- Una **API key de OpenAI** (solo si vas a usar la busqueda por RAG)
 
 ### 2. Instalar dependencias
 
@@ -152,7 +164,7 @@ uv sync
 
 ### 3. Configurar variables de entorno
 
-Crea un archivo `.env` en la raíz del proyecto:
+Crea un archivo `.env` en la raiz del proyecto:
 
 ```dotenv
 # Base de datos (coincide con docker-compose.yml)
@@ -161,12 +173,15 @@ DATABASE_URL="mysql+aiomysql://root:password@127.0.0.1:3306/employees"
 # Inteligencia artificial
 ANTHROPIC_API_KEY="sk-ant-..."
 
-# WhatsApp (Meta Cloud API) — opcional
+# RAG (busqueda en documentos propios) - opcional
+OPENAI_API_KEY="sk-..."
+
+# WhatsApp (Meta Cloud API) - opcional
 WHATSAPP_TOKEN="..."
 WHATSAPP_PHONE_ID="..."
 WHATSAPP_VERIFY_TOKEN="..."
 
-# Discord — opcional
+# Discord - opcional
 DISCORD_TOKEN="..."
 ```
 
@@ -179,7 +194,23 @@ docker compose up -d
 Esto inicia **MySQL 8.0** (puerto `3306`) con la base de ejemplo `employees` y
 **phpMyAdmin** en [http://localhost:8080](http://localhost:8080).
 
-### 5. Arrancar el servidor
+### 5. Indexar la base de conocimiento (RAG)
+
+Opcional: solo si querés que el bot pueda responder sobre tus propios documentos.
+
+1. Agrega archivos `.md` a la carpeta `knowledge/` (ya incluye un ejemplo:
+   `normativas_empleados.md`).
+2. Corre la ingesta cada vez que agregues o cambies un documento:
+
+```bash
+uv run python -m chatbot.rag.ingest
+```
+
+Esto genera `knowledge/index.json` (chunks + embeddings). La tool
+`search_knowledge_base` lee ese archivo en cada consulta; no hace falta
+reiniciar el servidor después de re-indexar.
+
+### 6. Arrancar el servidor
 
 ```bash
 uv run start
@@ -203,11 +234,11 @@ La API queda disponible en [http://127.0.0.1:8000](http://127.0.0.1:8000).
 ```bash
 curl -X POST http://127.0.0.1:8000/ask \
   -H "Content-Type: application/json" \
-  -d '{"message": "¿Cuáles son los 5 empleados con mayor salario actual?"}'
+  -d '{"message": "¿Cuántos dias de vacaciones tengo por año?"}'
 ```
 
 ```json
-{ "answer": "Los empleados con mayor salario actual son ..." }
+{ "answer": "Segun las normativas internas, tenes derecho a 14 dias corridos de vacaciones por año trabajado..." }
 ```
 
 ---
@@ -225,7 +256,8 @@ $env:PYTHONPATH = "src"; uv run mcp dev src/chatbot/mcp_server.py
 
 ## 🗺️ Roadmap
 
-- [ ] Implementar **RAG** (búsqueda vectorial / contextual) en [`rag_tools.py`](src/chatbot/tools/rag_tools.py).
+- [x] Implementar **RAG** basico (busqueda vectorial) en [`rag/`](src/chatbot/rag/) y
+  [`rag_tools.py`](src/chatbot/tools/rag_tools.py).
 - [ ] Persistir el historial de conversación por usuario (hoy cada mensaje es _stateless_).
 - [ ] Tests automatizados sobre el host y las herramientas.
 

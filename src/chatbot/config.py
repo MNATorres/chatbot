@@ -9,6 +9,12 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     ANTHROPIC_API_KEY: Optional[str] = None
 
+    # --- RAG (base de conocimiento) ---
+    # Claude no tiene API de embeddings propia: usamos OpenAI solo para ese paso.
+    OPENAI_API_KEY: Optional[str] = None
+    # Carpeta con los documentos fuente (.md) y donde se guarda el índice generado.
+    RAG_KNOWLEDGE_DIR: str = "knowledge"
+
     # --- WhatsApp (Meta Cloud API) ---
     WHATSAPP_TOKEN: Optional[str] = None  # Bearer token para enviar mensajes
     WHATSAPP_PHONE_ID: Optional[str] = None  # ID del número emisor
