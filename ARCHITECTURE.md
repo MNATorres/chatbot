@@ -34,7 +34,7 @@ flowchart TB
         server["mcp_server.py<br/><b>FastMCP</b>"]
         dbTools["tools/db_tools.py<br/><i>query_production_db</i>"]
         dcTools["tools/discord_tools.py"]
-        ragTools["tools/rag_tools.py<br/><i>(reservado)</i>"]
+        ragTools["tools/rag_tools.py<br/><i>search_knowledge_base</i>"]
     end
 
     subgraph external["🌐 Servicios externos"]
@@ -42,6 +42,8 @@ flowchart TB
         mysql[("🗄️ MySQL<br/>employees")]
         discordApi["🎮 Discord API"]
         metaApi["📱 Meta Cloud API"]
+        openaiEmb["🧮 OpenAI<br/>(embeddings)"]
+        kb[("📚 knowledge/<br/>index.json")]
     end
 
     http --> routes
@@ -56,11 +58,13 @@ flowchart TB
     server --> ragTools
     dbTools --> mysql
     dcTools --> discordApi
+    ragTools --> openaiEmb
+    ragTools --> kb
     host --> waSvc
     waSvc --> metaApi
 
     classDef ext fill:#2d2d3a,stroke:#D97757,color:#fff
-    class claude,mysql,discordApi,metaApi ext
+    class claude,mysql,discordApi,metaApi,openaiEmb,kb ext
 ```
 
 ---
