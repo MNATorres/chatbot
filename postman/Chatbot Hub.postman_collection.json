@@ -1,0 +1,134 @@
+{
+  "info": {
+    "name": "Chatbot Hub API",
+    "_postman_id": "b1a7f3d2-4c6e-4f10-9a2b-chatbothub0001",
+    "description": "Colección para probar el backend del agente conversacional (FastAPI + MCP + Claude) por el canal HTTP.\n\n## Requisitos previos\n1. Levantar la DB: `docker compose up -d`\n2. Arrancar el server: `uv run start` (queda en http://127.0.0.1:8000)\n3. Tener `ANTHROPIC_API_KEY` en el `.env` (si no, `/ask` fallará).\n4. Para la búsqueda RAG: `OPENAI_API_KEY` + correr la ingesta `uv run python -m chatbot.rag.ingest`.\n\n## Variables\n- `baseUrl` — URL del backend (default http://127.0.0.1:8000)\n\n> Nota: el canal de WhatsApp (webhooks de Meta) no se incluye acá: requiere una URL pública y firmas de Meta, no se prueba cómodo desde Postman.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8000", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/",
+          "host": ["{{baseUrl}}"],
+          "path": [""]
+        },
+        "description": "GET / — indica si el server responde y si el cliente MCP quedó inicializado."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('status == online', () => pm.expect(body.status).to.eql('online'));",
+              "pm.test('MCP conectado', () => pm.expect(body.mcp_connected).to.be.true);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ask — general",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Hola, ¿qué podés hacer?\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/ask",
+          "host": ["{{baseUrl}}"],
+          "path": ["ask"]
+        },
+        "description": "POST /ask — mensaje en lenguaje natural. Body: { \"message\": \"...\" }. Responde { \"answer\": \"...\" }."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('tiene answer', () => pm.expect(pm.response.json()).to.have.property('answer'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ask — consulta a la base (SQL)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"¿Cuántos empleados hay en total en la base?\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/ask",
+          "host": ["{{baseUrl}}"],
+          "path": ["ask"]
+        },
+        "description": "Ejercita la tool query_production_db (SQL de solo lectura sobre la base employees)."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('tiene answer', () => pm.expect(pm.response.json()).to.have.property('answer'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ask — base de conocimiento (RAG)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"¿Cuántos días de vacaciones tengo por año?\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/ask",
+          "host": ["{{baseUrl}}"],
+          "path": ["ask"]
+        },
+        "description": "Ejercita la tool search_knowledge_base (RAG). Requiere OPENAI_API_KEY y haber corrido la ingesta."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('tiene answer', () => pm.expect(pm.response.json()).to.have.property('answer'));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
