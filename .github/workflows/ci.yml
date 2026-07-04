@@ -10,6 +10,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Mínimo privilegio: el CI solo lee el repo, no necesita escribir nada.
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Tests (pytest + coverage)
@@ -38,13 +42,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # Instala la ruff fijada en el grupo dev (uv.lock), NO la última de uvx:
+      # así CI y local usan exactamente la misma versión y no rompe sola.
+      - name: Sincronizar dependencias (incluye grupo dev)
+        run: uv sync --group dev
 
       - name: Ruff check (lint)
-        run: uvx ruff check src tests
+        run: uv run ruff check src tests
 
       - name: Ruff format (verificar formato)
-        run: uvx ruff format --check src tests
+        run: uv run ruff format --check src tests
 
   secrets:
     name: Escaneo de secretos (gitleaks)
