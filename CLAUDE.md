@@ -17,6 +17,8 @@ uv sync                # Instalar dependencias (gestor: uv, NO pip/poetry)
 docker compose up -d   # Levantar MySQL 8.0 (:3306) + phpMyAdmin (:8080)
 uv run start           # Arrancar el backend FastAPI en http://127.0.0.1:8000 (reload activo)
 
+uv run python -m chatbot.rag.ingest   # (RAG) Indexar knowledge/*.md -> knowledge/index.json (requiere OPENAI_API_KEY)
+
 # Depurar las tools MCP de forma aislada (sin pasar por Claude):
 # PowerShell:
 $env:PYTHONPATH = "src"; uv run mcp dev src/chatbot/mcp_server.py
@@ -42,7 +44,8 @@ Canal (HTTP /ask · webhook WhatsApp · Discord)
   → MCPClientManager.call_tool    (mcp_client.py) ← habla por stdio
   → mcp_server.py (FastMCP)                        ← ejecuta las @mcp.tool()
       ├─ tools/db_tools.py        → MySQL (solo lectura)
-      └─ tools/discord_tools.py   → Discord
+      ├─ tools/discord_tools.py   → Discord
+      └─ tools/rag_tools.py       → rag/ (embeddings OpenAI + búsqueda coseno sobre knowledge/)
 ```
 
 Archivos clave en `src/chatbot/`:
@@ -63,7 +66,11 @@ Archivos clave en `src/chatbot/`:
   de WhatsApp): usa `settings.X`, no `os.getenv`.
 - **`database.py`** — Engine async de SQLAlchemy (aiomysql) + `SessionLocal`.
 - **`services/`** — `whatsapp.py` (Meta Cloud API vía httpx) y `discord_service.py` (discord.py).
-- **`tools/`** — `db_tools.py`, `discord_tools.py`, y `rag_tools.py` (**vacío, reservado para RAG**).
+- **`tools/`** — `db_tools.py`, `discord_tools.py`, y `rag_tools.py` (tool `search_knowledge_base`).
+- **`rag/`** — pipeline de RAG: `chunking.py` (trocea documentos por párrafos + overlap), `embeddings.py`
+  (texto→vector con OpenAI `text-embedding-3-small`; Claude no tiene API de embeddings), `store.py`
+  (índice JSON local + similitud coseno con NumPy, sin base de vectores) e `ingest.py` (script manual
+  que indexa `knowledge/`).
 
 ## Convenciones y cosas a tener en cuenta
 
@@ -72,6 +79,10 @@ Archivos clave en `src/chatbot/`:
 - **`query_production_db` es solo lectura por diseño**: valida con lista blanca de comandos
   (`SELECT/SHOW/DESCRIBE/EXPLAIN/WITH`) y lista negra de palabras peligrosas. No relajes esta
   validación sin una buena razón; nunca habilites escritura sin pedirlo explícitamente.
+- **RAG (`search_knowledge_base`)**: la búsqueda lee `knowledge/index.json`, que **no se genera solo**.
+  Tras agregar o editar documentos en `knowledge/`, corré la ingesta a mano
+  (`uv run python -m chatbot.rag.ingest`); requiere `OPENAI_API_KEY`. El cliente de OpenAI es *lazy*,
+  así que el server MCP arranca aunque no esté configurada (RAG queda inactivo hasta indexar).
 - **Modelo de Claude**: hoy está hardcodeado en `mcp_host.py`. Usa siempre IDs de modelo
   actuales y capaces (familia Claude más reciente).
 - **Todo es asíncrono** (FastAPI, SQLAlchemy async, httpx). No introduzcas llamadas bloqueantes
@@ -88,7 +99,9 @@ Archivos clave en `src/chatbot/`:
   Variables de WhatsApp (todas vía `Settings`): `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`,
   `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` (**obligatorio**: sin él el webhook rechaza con
   `403`), y opcionales `WHATSAPP_API_VERSION` (default `v25.0`) y `WHATSAPP_SANDBOX` (activa el fix
-  de números AR del sandbox; debe estar en `false` en producción).
+  de números AR del sandbox; debe estar en `false` en producción). Para el RAG: `OPENAI_API_KEY`
+  (opcional; solo si se usa `search_knowledge_base`) y `RAG_KNOWLEDGE_DIR` (carpeta de documentos +
+  índice; default `knowledge`).
 - **Base de ejemplo**: el esquema `employees` (~300.024 registros) de
   [datacharmer/test_db](https://github.com/datacharmer/test_db), cargado por Docker.
 
