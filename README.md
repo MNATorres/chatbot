@@ -259,7 +259,7 @@ $env:PYTHONPATH = "src"; uv run mcp dev src/chatbot/mcp_server.py
 - [x] Implementar **RAG** basico (busqueda vectorial) en [`rag/`](src/chatbot/rag/) y
   [`rag_tools.py`](src/chatbot/tools/rag_tools.py).
 - [ ] Persistir el historial de conversación por usuario (hoy cada mensaje es _stateless_).
-- [ ] Tests automatizados sobre el host y las herramientas.
+- [x] Tests automatizados sobre el host y las herramientas.
 
 ---
 
