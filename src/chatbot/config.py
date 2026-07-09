@@ -34,3 +34,20 @@ class Settings(BaseSettings):
 
 # Aquí creamos la instancia que el error no encontraba
 settings = Settings()
+
+
+def verificar_secretos_obligatorios() -> None:
+    """Falla rápido si falta configuración imprescindible del proceso web.
+
+    Solo ANTHROPIC_API_KEY es obligatoria: sin ella el Host no puede hablar con
+    Claude y cada request explotaría en runtime. WhatsApp/Discord/OpenAI quedan
+    opcionales (son canales/funciones desactivables).
+
+    Se invoca desde el lifespan de main.py, NO al importar este módulo: el
+    subproceso del MCP server también importa config.py y no necesita la key.
+    """
+    if not settings.ANTHROPIC_API_KEY:
+        raise RuntimeError(
+            "ANTHROPIC_API_KEY no está configurada. Definila en el archivo .env "
+            "(ver README, sección 'Variables de entorno') antes de arrancar el servidor."
+        )

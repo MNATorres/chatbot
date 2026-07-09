@@ -4,7 +4,9 @@ Se construye `Settings(_env_file=None)` para que el `.env` local del desarrollad
 no contamine los asserts; las env vars del proceso se limpian con monkeypatch.
 """
 
-from chatbot.config import Settings
+import pytest
+
+from chatbot.config import Settings, settings, verificar_secretos_obligatorios
 
 
 def test_debug_es_false_por_defecto(monkeypatch):
@@ -31,3 +33,24 @@ def test_secretos_de_canales_son_opcionales(monkeypatch):
     assert settings.WHATSAPP_TOKEN is None
     assert settings.DISCORD_TOKEN is None
     assert settings.OPENAI_API_KEY is None
+
+
+# --- Fail-fast de secretos obligatorios (corre en el lifespan del proceso web) ---
+
+
+def test_verificar_secretos_falla_sin_anthropic_key(monkeypatch):
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", None)
+    with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
+        verificar_secretos_obligatorios()
+
+
+def test_verificar_secretos_falla_con_key_vacia(monkeypatch):
+    # Una key en blanco (ej: `ANTHROPIC_API_KEY=` en el .env) también debe frenar.
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "")
+    with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
+        verificar_secretos_obligatorios()
+
+
+def test_verificar_secretos_pasa_con_key(monkeypatch):
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "sk-ant-test")
+    verificar_secretos_obligatorios()  # No debe lanzar.
