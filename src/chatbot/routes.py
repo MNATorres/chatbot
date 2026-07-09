@@ -18,14 +18,25 @@ async def health_check(request: Request):
 
 
 @router.post("/ask")
-async def ask_ai(request: Request, message: str = Body(..., embed=True)):
-    """Punto único de entrada HTTP que delega el procesamiento de lenguaje natural al Host de IA."""
+async def ask_ai(
+    request: Request,
+    message: str = Body(..., embed=True),
+    session_id: str | None = Body(default=None),
+):
+    """Punto único de entrada HTTP que delega el procesamiento de lenguaje natural al Host de IA.
+
+    Con `session_id`, las preguntas de esa sesión comparten historial (memoria
+    conversacional); sin él, cada request es stateless como siempre.
+    """
     # Obtenemos instancias preiniciadas desde el motor de FastAPI
     mcp_client = request.app.state.mcp_client
     mcp_host = request.app.state.mcp_host
 
+    # El prefijo "ask:" evita colisiones con las claves de WhatsApp.
+    conversation_id = f"ask:{session_id}" if session_id else None
+
     # ➡ RUTAS DELEGA AL HOST EL PROCESAMIENTO
-    answer = await mcp_host.process_message(message, mcp_client)
+    answer = await mcp_host.process_message(message, mcp_client, conversation_id=conversation_id)
 
     return {"answer": answer}
 
@@ -57,7 +68,8 @@ async def _procesar_mensaje_whatsapp(mcp_host, mcp_client, sender: str, text_bod
     """Corre el bucle ReAct y responde por WhatsApp. Se ejecuta en background."""
     logger.info(f"💬 MSJ de WhatsApp [{sender}]: {text_body}")
     try:
-        answer = await mcp_host.process_message(text_body, mcp_client)
+        # Cada número de WhatsApp es una conversación con memoria propia.
+        answer = await mcp_host.process_message(text_body, mcp_client, conversation_id=f"whatsapp:{sender}")
         await send_whatsapp_message(sender, answer)
     except Exception:
         # No dejamos que una excepción del procesamiento se pierda en silencio.

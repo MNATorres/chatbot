@@ -7,9 +7,11 @@ from loguru import logger
 # Importamos exclusivamente los componentes independientes
 # (la config se lee vía pydantic-settings, que carga el .env por sí solo).
 from chatbot.config import verificar_secretos_obligatorios
+from chatbot.database import engine
 from chatbot.logging_config import configure_logging
 from chatbot.mcp_client import get_mcp_client
 from chatbot.mcp_host import ChatbotHost
+from chatbot.memory import Base
 from chatbot.routes import router
 
 configure_logging()
@@ -23,6 +25,11 @@ async def lifespan(app: FastAPI):
     verificar_secretos_obligatorios()
 
     logger.info("🚀 Levantando todo el ecosistema de la aplicación...")
+
+    # Memoria conversacional: crea la tabla chat_mensajes si no existe.
+    # create_all es idempotente; una sola tabla no amerita migraciones.
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
     # Obtenemos la conexión con el servidor MCP
     async with get_mcp_client() as mcp_client:

@@ -85,8 +85,10 @@ def test_mensaje_texto_valido_dispara_procesamiento(app, enviar_mock):
         r = _post(client, _payload(body="cuántos empleados hay"))
     assert r.status_code == 200
     app.state.mcp_host.process_message.assert_awaited_once()
-    args, _ = app.state.mcp_host.process_message.call_args
+    args, kwargs = app.state.mcp_host.process_message.call_args
     assert args[0] == "cuántos empleados hay"
+    # Cada número de WhatsApp tiene su propia conversación con memoria.
+    assert kwargs["conversation_id"] == "whatsapp:5491111111111"
     enviar_mock.assert_awaited_once_with("5491111111111", "respuesta del bot")
 
 
@@ -188,6 +190,20 @@ def test_ask_delega_al_host(app):
     assert r.status_code == 200
     assert r.json() == {"answer": "respuesta del bot"}
     app.state.mcp_host.process_message.assert_awaited_once()
+
+
+def test_ask_sin_session_id_es_stateless(app):
+    with TestClient(app) as client:
+        client.post("/ask", json={"message": "hola"})
+    kwargs = app.state.mcp_host.process_message.call_args.kwargs
+    assert kwargs["conversation_id"] is None
+
+
+def test_ask_con_session_id_pasa_conversation_id(app):
+    with TestClient(app) as client:
+        client.post("/ask", json={"message": "hola", "session_id": "abc"})
+    kwargs = app.state.mcp_host.process_message.call_args.kwargs
+    assert kwargs["conversation_id"] == "ask:abc"
 
 
 # --- Health check ---
