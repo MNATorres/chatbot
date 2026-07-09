@@ -17,6 +17,8 @@ knowledge/index.json
 # NUNCA subas el archivo .env con tus claves
 .env
 .env.*
+# La plantilla sin valores reales sí se versiona
+!.env.example
 
 # --- Python ---
 __pycache__/

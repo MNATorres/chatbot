@@ -170,7 +170,11 @@ Crea un archivo `.env` en la raiz del proyecto:
 # Base de datos (coincide con docker-compose.yml)
 DATABASE_URL="mysql+aiomysql://root:password@127.0.0.1:3306/employees"
 
-# Inteligencia artificial
+# Logs verbosos + diagnostico de loguru. Dejalo en false fuera de desarrollo:
+# con true, los tracebacks imprimen valores de variables locales.
+DEBUG=false
+
+# Inteligencia artificial (obligatoria: sin ella el servidor no arranca)
 ANTHROPIC_API_KEY="sk-ant-..."
 
 # RAG (busqueda en documentos propios) - opcional
@@ -180,9 +184,18 @@ OPENAI_API_KEY="sk-..."
 WHATSAPP_TOKEN="..."
 WHATSAPP_PHONE_ID="..."
 WHATSAPP_VERIFY_TOKEN="..."
+# App Secret de la app de Meta: obligatorio para recibir mensajes (valida la
+# firma HMAC del webhook; sin el, el webhook rechaza todo con 403).
+WHATSAPP_APP_SECRET="..."
 
 # Discord - opcional
 DISCORD_TOKEN="..."
+```
+
+Tambien podes copiar la plantilla y completar los valores:
+
+```bash
+cp .env.example .env
 ```
 
 ### 4. Levantar la base de datos
