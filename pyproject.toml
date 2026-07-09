@@ -28,6 +28,7 @@ test = "chatbot.main:test"
 
 [dependency-groups]
 dev = [
+    "aiosqlite>=0.20",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "pytest-cov>=5.0",

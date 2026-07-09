@@ -28,6 +28,10 @@ class Settings(BaseSettings):
 
     DISCORD_TOKEN: Optional[str] = None
 
+    # --- Memoria conversacional (tabla chat_mensajes en MySQL) ---
+    MEMORY_MAX_MESSAGES: int = 8  # Ventana: mensajes retenidos por conversación (4 intercambios)
+    MEMORY_TTL_SECONDS: int = 1800  # Una conversación expira tras 30 min de inactividad
+
     # Esto le dice a Pydantic que busque en un archivo .env
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
