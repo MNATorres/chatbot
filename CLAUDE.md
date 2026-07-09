@@ -87,8 +87,12 @@ Archivos clave en `src/chatbot/`:
   actuales y capaces (familia Claude más reciente).
 - **Todo es asíncrono** (FastAPI, SQLAlchemy async, httpx). No introduzcas llamadas bloqueantes
   en el event loop.
-- **El agente es stateless**: cada mensaje arranca una conversación nueva, sin historial entre
-  peticiones.
+- **Memoria conversacional** (`memory.py`): el historial vive en la tabla `chat_mensajes` de MySQL
+  (se crea sola en el `lifespan` con `create_all`). Se guardan **solo pares de texto**
+  usuario/asistente — nunca los bloques `tool_use`/`tool_result` del ReAct (un `tool_use` huérfano
+  rompería la API). Ventana de 8 mensajes por conversación + TTL de 30 min de inactividad
+  (`MEMORY_MAX_MESSAGES` / `MEMORY_TTL_SECONDS` en `Settings`). Claves: `whatsapp:{sender}` y
+  `ask:{session_id}`; `POST /ask` **sin** `session_id` sigue siendo stateless.
 - **Webhook de WhatsApp** (`POST /webhook/whatsapp`): es **fire-and-forget en background**, no
   síncrono. Meta reintenta si no recibe un `200` rápido (causa respuestas duplicadas), así que se
   contesta `200` de inmediato y el bucle ReAct corre en `BackgroundTasks`. Además: **valida la

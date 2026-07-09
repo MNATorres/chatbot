@@ -80,7 +80,11 @@ for content in resp.content:
    chars, arma los `tool_result` y realimenta `messages`.
 4. Si agota las 10 iteraciones, devuelve un mensaje de "límite alcanzado".
 
-Es **stateless**: cada mensaje arranca una conversación nueva (sin historial).
+Tiene **memoria conversacional opcional** (`memory.py`): con `conversation_id`
+(`whatsapp:{sender}` o `ask:{session_id}`), el turno arranca con el historial de la
+tabla `chat_mensajes` (MySQL) y persiste el par texto usuario/respuesta final al
+terminar — nunca los bloques `tool_use`/`tool_result`. Sin `conversation_id`
+(ej: `/ask` sin `session_id`), cada mensaje arranca una conversación nueva.
 
 ## Diferencias con el tutorial y mejoras a tener en cuenta
 

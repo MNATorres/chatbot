@@ -238,7 +238,7 @@ La API queda disponible en [http://127.0.0.1:8000](http://127.0.0.1:8000).
 | Método | Ruta | Descripción |
 | :--- | :--- | :--- |
 | `GET` | `/` | Health check; indica si el cliente MCP está conectado. |
-| `POST` | `/ask` | Envía un mensaje al agente. Body: `{ "message": "..." }`. |
+| `POST` | `/ask` | Envía un mensaje al agente. Body: `{ "message": "...", "session_id": "..." }` (`session_id` es opcional: con él, la sesión tiene memoria conversacional; sin él, la request es stateless). |
 | `GET` | `/webhook/whatsapp` | Verificación del webhook por parte de Meta. |
 | `POST` | `/webhook/whatsapp` | Recepción de mensajes entrantes de WhatsApp. |
 
@@ -253,6 +253,18 @@ curl -X POST http://127.0.0.1:8000/ask \
 ```json
 { "answer": "Segun las normativas internas, tenes derecho a 14 dias corridos de vacaciones por año trabajado..." }
 ```
+
+Con memoria conversacional (mismo `session_id` en cada request de la sesión):
+
+```bash
+curl -X POST http://127.0.0.1:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"message": "¿Y me las puedo tomar en enero?", "session_id": "mi-sesion-1"}'
+```
+
+En WhatsApp la memoria es automática: cada número es su propia conversación. El
+historial (últimos 8 mensajes, expira a los 30 min de inactividad) se guarda en la
+tabla `chat_mensajes` de MySQL, así que sobrevive reinicios del servidor.
 
 ---
 
@@ -271,7 +283,8 @@ $env:PYTHONPATH = "src"; uv run mcp dev src/chatbot/mcp_server.py
 
 - [x] Implementar **RAG** basico (busqueda vectorial) en [`rag/`](src/chatbot/rag/) y
   [`rag_tools.py`](src/chatbot/tools/rag_tools.py).
-- [ ] Persistir el historial de conversación por usuario (hoy cada mensaje es _stateless_).
+- [x] Persistir el historial de conversación por usuario (tabla `chat_mensajes` en MySQL;
+  `/ask` sin `session_id` sigue siendo _stateless_).
 - [x] Tests automatizados sobre el host y las herramientas.
 
 ---

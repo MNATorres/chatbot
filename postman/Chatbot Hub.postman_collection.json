@@ -69,6 +69,37 @@
       ]
     },
     {
+      "name": "Ask — con memoria (session_id)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Me llamo Matías, ¿me lo recordás?\",\n  \"session_id\": \"postman-demo\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/ask",
+          "host": ["{{baseUrl}}"],
+          "path": ["ask"]
+        },
+        "description": "Memoria conversacional: requests con el mismo session_id comparten historial (ventana de 8 mensajes, expira a los 30 min de inactividad). Mandá esta request y después preguntale '¿cómo me llamo?' con el mismo session_id."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('tiene answer', () => pm.expect(pm.response.json()).to.have.property('answer'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Ask — consulta a la base (SQL)",
       "request": {
         "method": "POST",
