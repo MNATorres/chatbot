@@ -6,7 +6,10 @@ class Settings(BaseSettings):
     # Definimos la variable y su tipo
     DATABASE_URL: str = "mysql+aiomysql://root:password@127.0.0.1:3306/employees"
     PORT: int = 8000
-    DEBUG: bool = True
+    # Apagado por defecto: con DEBUG activo, loguru usa diagnose=True y expone
+    # valores de variables locales (incluidos secretos) en los tracebacks.
+    # Para desarrollo local, activalo con DEBUG=true en el .env.
+    DEBUG: bool = False
     ANTHROPIC_API_KEY: Optional[str] = None
 
     # --- RAG (base de conocimiento) ---
