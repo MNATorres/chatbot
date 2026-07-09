@@ -82,10 +82,10 @@ jobs:
       - name: Exportar dependencias a requirements.txt
         run: uv export --no-emit-project --no-hashes --format requirements-txt > requirements.txt
 
-      # Informativo por ahora (no bloquea): el proyecto arrastra CVEs en deps
-      # transitivas (starlette, python-multipart, etc.) que requieren un bump
-      # de dependencias con testing propio. Quitá continue-on-error cuando estén
-      # actualizadas para volverlo un gate estricto.
+      # Gate estricto: si aparece una CVE en las dependencias, el CI falla.
+      # Si una vulnerabilidad no tiene fix publicado, suprimila puntualmente con
+      # --ignore-vuln <ID> y un comentario con fecha y motivo (no vuelvas a
+      # poner continue-on-error). El --python 3.13 es necesario porque el
+      # dry-run de pip-audit resuelve deps que exigen 3.13 (ej: audioop-lts).
       - name: pip-audit
-        continue-on-error: true
-        run: uvx pip-audit -r requirements.txt
+        run: uvx --python 3.13 pip-audit -r requirements.txt
