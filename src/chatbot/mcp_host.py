@@ -4,6 +4,7 @@ from anthropic import AsyncAnthropic
 from loguru import logger
 from chatbot.config import settings
 from chatbot.mcp_client import MCPClientManager
+from chatbot.memory import ConversationMemory
 
 # Presupuesto de salida por turno. 1024 cortaba respuestas largas (ej: listar
 # 50 filas + resumen de varios canales) a mitad de palabra.
@@ -13,8 +14,14 @@ MAX_TOKENS = 8192
 class ChatbotHost:
     """Actúa como el 'Host' central, inyectando dependencias al modelo de IA."""
 
-    def __init__(self):
+    def __init__(self, memory: ConversationMemory | None = None):
         self.anthropic = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+        # Memoria conversacional (MySQL). Construirla no toca la DB: solo guarda
+        # la session factory; inyectable en tests.
+        self.memory = memory or ConversationMemory(
+            max_mensajes=settings.MEMORY_MAX_MESSAGES,
+            ttl_segundos=settings.MEMORY_TTL_SECONDS,
+        )
 
     async def _run_tool(self, mcp_client: MCPClientManager, tool_use) -> dict:
         """Ejecuta una tool vía el cliente MCP y devuelve su bloque tool_result."""
@@ -34,9 +41,17 @@ class ChatbotHost:
             "content": result_text,
         }
 
-    async def process_message(self, message: str, mcp_client: MCPClientManager) -> str:
-        """Contiene el ciclo de razonamiento (ReAct) de 10 iteraciones de Claude."""
-        messages = [{"role": "user", "content": message}]
+    async def process_message(
+        self, message: str, mcp_client: MCPClientManager, conversation_id: str | None = None
+    ) -> str:
+        """Contiene el ciclo de razonamiento (ReAct) de 10 iteraciones de Claude.
+
+        Con `conversation_id`, el turno arranca con el historial vigente de esa
+        conversación y el par (mensaje, respuesta final) se persiste al terminar.
+        Sin él, el comportamiento es stateless como siempre.
+        """
+        historial = await self.memory.get_history(conversation_id) if conversation_id else []
+        messages = [*historial, {"role": "user", "content": message}]
         logger.info(f"💬 Mensaje entrante: {message}")
 
         for i in range(10):
@@ -68,7 +83,7 @@ class ChatbotHost:
                     final_text += (
                         "\n\n⚠️ [Respuesta truncada por longitud máxima. Pedime que continúe o acotá la consulta.]"
                     )
-                return final_text
+                return await self._responder(conversation_id, message, final_text)
 
             # 3. Ejecución concurrente de las tools de este turno vía cliente MCP.
             #    gather preserva el orden de la lista y cada tool_result lleva su
@@ -82,4 +97,19 @@ class ChatbotHost:
             messages.append({"role": "assistant", "content": response.content})
             messages.append({"role": "user", "content": tool_results_content})
 
-        return "Lo siento, alcancé el límite de razonamiento interno sin llegar a una conclusión."
+        return await self._responder(
+            conversation_id,
+            message,
+            "Lo siento, alcancé el límite de razonamiento interno sin llegar a una conclusión.",
+        )
+
+    async def _responder(self, conversation_id: str | None, message: str, final_text: str) -> str:
+        """Persiste el intercambio (si la conversación tiene id) y devuelve la respuesta.
+
+        A la memoria van SOLO los textos finales: los bloques tool_use/tool_result
+        del turno viven en la lista local `messages` y no deben persistirse (un
+        tool_use huérfano en el turno siguiente rompería la API).
+        """
+        if conversation_id:
+            await self.memory.append_exchange(conversation_id, message, final_text)
+        return final_text

@@ -8,13 +8,17 @@ from tests.conftest import anthropic_response, text_block, tool_use_block, tool_
 
 
 def _host(create_side_effect=None, create_return=None):
-    """Construye un host con el cliente de Anthropic mockeado."""
+    """Construye un host con el cliente de Anthropic y la memoria mockeados."""
     host = ChatbotHost()
     host.anthropic = MagicMock()
     if create_side_effect is not None:
         host.anthropic.messages.create = AsyncMock(side_effect=create_side_effect)
     else:
         host.anthropic.messages.create = AsyncMock(return_value=create_return)
+    # Memoria mockeada: sin DB. Por defecto, historial vacío.
+    host.memory = MagicMock()
+    host.memory.get_history = AsyncMock(return_value=[])
+    host.memory.append_exchange = AsyncMock()
     return host
 
 
@@ -102,6 +106,57 @@ async def test_limite_de_iteraciones():
 
     assert "límite de razonamiento" in res
     assert host.anthropic.messages.create.call_count == 10
+
+
+# --- Memoria conversacional ---
+
+
+async def test_historial_se_antepone_al_mensaje():
+    host = _host(create_return=anthropic_response([text_block("Te llamás Ana")], "end_turn"))
+    host.memory.get_history = AsyncMock(
+        return_value=[
+            {"role": "user", "content": "me llamo Ana"},
+            {"role": "assistant", "content": "¡Hola Ana!"},
+        ]
+    )
+
+    await host.process_message("¿cómo me llamo?", _mock_client(), conversation_id="whatsapp:1")
+
+    mensajes = host.anthropic.messages.create.call_args.kwargs["messages"]
+    assert mensajes[:2] == [
+        {"role": "user", "content": "me llamo Ana"},
+        {"role": "assistant", "content": "¡Hola Ana!"},
+    ]
+    assert mensajes[2] == {"role": "user", "content": "¿cómo me llamo?"}
+
+
+async def test_persiste_solo_texto_tras_tool_use():
+    # Aunque el turno usó una tool, a la memoria van SOLO los strings finales.
+    turno1 = anthropic_response([tool_use_block("query_production_db", {"sql": "SELECT 1"})], "tool_use")
+    turno2 = anthropic_response([text_block("hay 3 filas")], "end_turn")
+    host = _host(create_side_effect=[turno1, turno2])
+
+    await host.process_message("consulta", _mock_client(), conversation_id="ask:s1")
+
+    host.memory.append_exchange.assert_awaited_once_with("ask:s1", "consulta", "hay 3 filas")
+
+
+async def test_sin_conversation_id_no_toca_la_memoria():
+    host = _host(create_return=anthropic_response([text_block("Hola!")], "end_turn"))
+
+    await host.process_message("hola", _mock_client())
+
+    host.memory.get_history.assert_not_awaited()
+    host.memory.append_exchange.assert_not_awaited()
+
+
+async def test_fallback_de_iteraciones_tambien_persiste():
+    siempre_tool = anthropic_response([tool_use_block("query_production_db", {"sql": "SELECT 1"})], "tool_use")
+    host = _host(create_return=siempre_tool)
+
+    res = await host.process_message("bucle", _mock_client(), conversation_id="whatsapp:9")
+
+    host.memory.append_exchange.assert_awaited_once_with("whatsapp:9", "bucle", res)
 
 
 # --- _run_tool: truncado a 40000 chars ---
